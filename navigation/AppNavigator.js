@@ -39,7 +39,7 @@ const AppNavigator = () => {
         },
         tabBarActiveTintColor: '#000',
         tabBarInactiveTintColor: '#666',
-        tabBarStyle: {...styles.tabBar, paddingBottom: 80},
+        tabBarStyle: [styles.tabBar, { paddingBottom: Math.max(insets.bottom, 5) }],
         tabBarLabelStyle: styles.tabLabel,
         tabBarShowLabel: true,
         headerStyle: styles.header,
@@ -49,12 +49,18 @@ const AppNavigator = () => {
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
-        options={{ title: 'E-KOM' }}
+        options={{ 
+          title: 'E-KOM',
+          tabBarLabel: 'Home'
+        }}
       />
       <Tab.Screen 
         name="Orders" 
         component={OrdersScreen}
-        options={{ title: 'Orders' }}
+        options={{ 
+          title: 'Orders',
+          tabBarLabel: 'Orders'
+        }}
       />
       <Tab.Screen 
         name="Add" 
@@ -71,17 +77,26 @@ const AppNavigator = () => {
       <Tab.Screen 
         name="QRCode" 
         component={QRCodeScreen}
-        options={{ title: 'QR Code' }}
+        options={{ 
+          title: 'QR Code',
+          tabBarLabel: 'QR Code'
+        }}
       />
       <Tab.Screen 
         name="Analytics" 
         component={AnalyticsScreen}
-        options={{ title: 'Analytics' }}
+        options={{ 
+          title: 'Analytics',
+          tabBarLabel: 'Analytics'
+        }}
       />
       <Tab.Screen 
         name="Settings" 
         component={SettingsScreen}
-        options={{ title: 'Settings' }}
+        options={{ 
+          title: 'Settings',
+          tabBarLabel: 'Settings'
+        }}
       />
     </Tab.Navigator>
   );
@@ -102,9 +117,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    paddingBottom: 8,
-    paddingTop: 8,
-    height: 70,
+    height: 80,
+    paddingBottom: 5,
   },
   tabLabel: {
     fontSize: 11,
