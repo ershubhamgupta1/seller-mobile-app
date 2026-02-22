@@ -8,6 +8,7 @@ import OrdersScreen from '../screens/OrdersScreen';
 import AddProductScreen from '../screens/AddProductScreen';
 import QRCodeScreen from '../screens/QRCodeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -28,6 +29,8 @@ const AppNavigator = () => {
             iconName = '➕';
           } else if (route.name === 'QRCode') {
             iconName = focused ? '📱' : '📱';
+          } else if (route.name === 'Analytics') {
+            iconName = focused ? '📊' : '📊';
           } else if (route.name === 'Settings') {
             iconName = focused ? '⚙️' : '⚙️';
           }
@@ -36,8 +39,9 @@ const AppNavigator = () => {
         },
         tabBarActiveTintColor: '#000',
         tabBarInactiveTintColor: '#666',
-        tabBarStyle: [styles.tabBar, { paddingBottom: insets.bottom }],
+        tabBarStyle: {...styles.tabBar, paddingBottom: 80},
         tabBarLabelStyle: styles.tabLabel,
+        tabBarShowLabel: true,
         headerStyle: styles.header,
         headerTitleStyle: styles.headerTitle,
       })}
@@ -70,6 +74,11 @@ const AppNavigator = () => {
         options={{ title: 'QR Code' }}
       />
       <Tab.Screen 
+        name="Analytics" 
+        component={AnalyticsScreen}
+        options={{ title: 'Analytics' }}
+      />
+      <Tab.Screen 
         name="Settings" 
         component={SettingsScreen}
         options={{ title: 'Settings' }}
@@ -100,6 +109,8 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     marginTop: 4,
+    marginBottom: 4,
+    color: '#000',
   },
   tabIcon: {
     fontSize: 24,
