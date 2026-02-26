@@ -1,9 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, Alert } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
 
 const SettingsScreen = ({ navigation }) => {
+  const { logout } = useAuth();
   const [autoDecrement, setAutoDecrement] = useState(true);
   const [lowStockNotification, setLowStockNotification] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -75,28 +95,11 @@ const SettingsScreen = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={styles.reviewNote}>Review typically takes 24-48 hours</Text>
 
-        <View style={styles.inventorySection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Inventory Logic</Text>
-            <TouchableOpacity style={styles.refreshIcon}>
-              <Text style={styles.icon}>🔄</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.toggleItem}>
-            <Text style={styles.toggleLabel}>Auto-Decrement</Text>
-            <Switch
-              value={autoDecrement}
-              onValueChange={setAutoDecrement}
-            />
-          </View>
-          <View style={styles.toggleItem}>
-            <Text style={styles.toggleLabel}>Low Stock Notification</Text>
-            <Switch
-              value={lowStockNotification}
-              onValueChange={setLowStockNotification}
-            />
-          </View>
-        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutIcon}>🚪</Text>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -278,6 +281,25 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 16,
     color: '#000',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc3545',
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  logoutIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

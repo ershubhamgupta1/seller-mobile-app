@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { ImagePicker, FileSystem } from 'expo';
+import { inventory } from '../services/api';
+import Header from '../components/Header';
 
 const AddProductScreen = ({ navigation }) => {
   const [socialLink, setSocialLink] = useState('');
@@ -8,20 +11,71 @@ const AddProductScreen = ({ navigation }) => {
   const [sizeRange, setSizeRange] = useState('S, M, L, XL');
   const [originalPrice, setOriginalPrice] = useState('$ 0.00');
   const [offerPrice, setOfferPrice] = useState('$ 0.00');
+  const [title, setTitle] = useState('');
+  const [caption, setCaption] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState([]);
+
+  const handleAutoFetch = () => {
+    // TODO: Implement auto-fetch from social media
+    Alert.alert('Auto-Fetch', 'This feature will automatically fetch product details from the social media link.');
+  };
+
+  const handlePublish = async () => {
+    if (!title || !socialLink) {
+      Alert.alert('Error', 'Please fill in at least the title and social media link.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const postData = {
+        social_platform: 'instagram', // Default to Instagram, could be dynamic
+        social_url: socialLink,
+        title: title || 'Untitled Product',
+        caption: caption || '',
+        price: parseFloat(offerPrice.replace(/[^0-9.]/g, '')) || 0,
+        currency: 'INR',
+        material: material || '',
+        attributes: {
+          color: '', // Could be added as a separate field
+          size: sizeRange,
+          delivery_fee_amount: 0, // Could be added as a separate field
+        },
+        images: images.map((img, index) => ({
+          url: img.url,
+          sort_order: index + 1
+        }))
+      };
+
+      await inventory.createPost(postData);
+      Alert.alert('Success', 'Product published successfully!');
+      
+      // Reset form
+      setTitle('');
+      setCaption('');
+      setSocialLink('');
+      setMaterial('');
+      setSizeRange('S, M, L, XL');
+      setOriginalPrice('$ 0.00');
+      setOfferPrice('$ 0.00');
+      setImages([]);
+      
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to publish product');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>E-KOM</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>🔔</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>👤</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header 
+        title="Add Product"
+        onNotificationPress={() => console.log('Notification pressed')}
+        onProfilePress={() => navigation.navigate('Settings')}
+      />
 
       <View style={styles.content}>
         <View style={styles.titleSection}>
@@ -35,13 +89,13 @@ const AddProductScreen = ({ navigation }) => {
             <Text style={styles.linkIcon}>🔗</Text>
             <TextInput
               style={styles.linkInput}
-              placeholder="Paste Instagram, FB, or Pinterest link"
+              placeholder="Enter social media link"
               placeholderTextColor="#999"
               value={socialLink}
               onChangeText={setSocialLink}
             />
           </View>
-          <TouchableOpacity style={styles.autoFetchButton}>
+          <TouchableOpacity style={styles.autoFetchButton} onPress={handleAutoFetch}>
             <Text style={styles.magicIcon}>✨</Text>
             <Text style={styles.autoFetchText}>Auto-Fetch Details</Text>
           </TouchableOpacity>
@@ -87,40 +141,54 @@ const AddProductScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.detailsSection}>
-          <Text style={styles.label}>Material</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Cotton"
-            placeholderTextColor="#999"
-            value={material}
-            onChangeText={setMaterial}
-          />
-          <Text style={styles.label}>Size Range</Text>
-          <TextInput
-            style={styles.input}
-            value={sizeRange}
-            onChangeText={setSizeRange}
-          />
+          <View style={styles.formRowContainer}>
+            <Text style={styles.label}>Material</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Cotton"
+              placeholderTextColor="#999"
+              value={material}
+              onChangeText={setMaterial}
+            />
+          </View>
+          <View style={styles.formRowContainer}>
+            <Text style={styles.label}>Size Range</Text>
+            <TextInput
+              style={styles.input}
+              value={sizeRange}
+              onChangeText={setSizeRange}
+            />
+          </View>
         </View>
 
-        <View style={styles.pricingSection}>
-          <Text style={styles.label}>Original Price</Text>
-          <TextInput
-            style={styles.input}
-            value={originalPrice}
-            onChangeText={setOriginalPrice}
-          />
-          <Text style={styles.label}>Offer Price</Text>
-          <TextInput
-            style={styles.input}
-            value={offerPrice}
-            onChangeText={setOfferPrice}
-          />
+        <View style={styles.detailsSection}>
+          <View style={styles.formRowContainer}>
+            <Text style={styles.label}>Original Price</Text>
+            <TextInput
+              style={styles.input}
+              value={originalPrice}
+              onChangeText={setOriginalPrice}
+            />
+          </View>
+          <View style={styles.formRowContainer}>
+            <Text style={styles.label}>Offer Price</Text>
+            <TextInput
+              style={styles.input}
+              value={offerPrice}
+              onChangeText={setOfferPrice}
+            />
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.publishButton}>
-          <Text style={styles.cloudIcon}>☁️</Text>
-          <Text style={styles.publishText}>Publish Product</Text>
+        <TouchableOpacity style={styles.publishButton} onPress={handlePublish} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.cloudIcon}>☁️</Text>
+          )}
+          <Text style={styles.publishText}>
+            {loading ? 'Publishing...' : 'Publish Product'}
+          </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -294,6 +362,9 @@ const styles = StyleSheet.create({
   },
   detailsSection: {
     marginBottom: 30,
+    flexDirection: 'row',
+    justifyContent:'space-between',
+    width: '100%',
   },
   pricingSection: {
     marginBottom: 30,
@@ -306,6 +377,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     marginBottom: 15,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
   },
   publishButton: {
     flexDirection: 'row',
@@ -325,6 +400,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  formRowContainer: {
+    flex:1,
+    marginRight: 10
+  }
 });
 
 export default AddProductScreen;

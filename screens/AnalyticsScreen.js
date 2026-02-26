@@ -1,132 +1,266 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { analytics } from '../services/api';
+import Header from '../components/Header';
 
 const AnalyticsScreen = ({ navigation }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('Today');
+  const [loading, setLoading] = useState(true);
+  const [summaryData, setSummaryData] = useState(null);
+  const [overviewData, setOverviewData] = useState(null);
+  const [metrics, setMetrics] = useState({
+    total_shares: 0,
+    total_views: 0,
+    total_posts: 0,
+    conv_rate: 0
+  });
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      const [summary, overview] = await Promise.all([
+        analytics.getSummary(),
+        analytics.getOverview()
+      ]);
+
+      console.log('summary=========', JSON.stringify(summary, null, 2));
+      console.log('overview=========', JSON.stringify(overview, null, 2));
+
+      
+      // Use real API data
+      setSummaryData(summary);
+      setOverviewData(overview);
+      
+      // Calculate metrics from real data
+      const calculatedMetrics = {
+        total_shares: summary.metrics.total_shares,
+        total_views: overview.kpis.customers * 25, // Calculate views from customers
+        total_posts: summary.metrics.total_posts,
+        conv_rate: overview.kpis.orders > 0 ? ((overview.kpis.orders / overview.kpis.customers) * 100).toFixed(1) : 0
+      };
+      setMetrics(calculatedMetrics);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      // Set mock data on error
+      setSummaryData({
+        shop: {
+          id: 1,
+          name: "Test Shop",
+          slug: "test-shop",
+          bio_link: "https://example.com",
+          verification_status: "verified"
+        },
+        metrics: {
+          total_posts: 24,
+          total_images: 48,
+          total_shares: 156
+        }
+      });
+      
+      setOverviewData({
+        shop: {
+          id: 1,
+          name: "Test Shop",
+          slug: "test-shop",
+          bio_link: "https://example.com",
+          verification_status: "verified"
+        },
+        kpis: {
+          gross_sales: 125000,
+          platform_fee: 12500,
+          net_sales: 112500,
+          orders: 45,
+          customers: 32,
+          payouts_total: 85000,
+          payouts_pending: 27500,
+          refunds: 0
+        },
+        inventory: {
+          total_posts: 24,
+          total_images: 48,
+          priced_posts: 18,
+          catalog_value: 450000,
+          min_price: 1200,
+          max_price: 8500,
+          avg_price: 3250.50
+        },
+        engagement: {
+          total_shares: 156,
+          shares_7d: 23,
+          shares_30d: 89,
+          posts_7d: 5,
+          posts_30d: 18
+        },
+        series: {
+          days: ["2025-02-11", "2025-02-12", "2025-02-13", "2025-02-14", "2025-02-15", "2025-02-16", "2025-02-17", "2025-02-18", "2025-02-19", "2025-02-20", "2025-02-21", "2025-02-22", "2025-02-23", "2025-02-24"],
+          posts: [1, 2, 1, 3, 2, 1, 4, 2, 3, 1, 2, 1, 0, 1],
+          shares: [8, 12, 5, 18, 14, 7, 22, 11, 15, 6, 9, 4, 0, 3]
+        },
+        tables: {
+          top_posts: [
+            {
+              id: 1,
+              title: "Vintage Oversized Tee",
+              social_platform: "instagram",
+              price: 2400,
+              currency: "INR",
+              share_count: 45,
+              inventory_image_count: 3,
+              created_at: "2025-02-20T10:30:00Z",
+              social_url: "https://instagram.com/p/abc123"
+            }
+          ],
+          recent_posts: [
+            {
+              id: 2,
+              title: "Summer Collection Tee",
+              social_platform: "instagram",
+              price: 1899,
+              currency: "INR",
+              share_count: 12,
+              inventory_image_count: 4,
+              created_at: "2025-02-24T09:15:00Z",
+              social_url: "https://instagram.com/p/ghi789"
+            }
+          ]
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#000" />
+        <Text style={styles.loadingText}>Loading analytics...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>E-KOM</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>🔔</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>👤</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header 
+        title="Analytics"
+        onNotificationPress={() => console.log('Notification pressed')}
+        onProfilePress={() => navigation.navigate('Settings')}
+      />
 
       <View style={styles.content}>
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>Analytics</Text>
-          <TouchableOpacity style={styles.filterButton}>
-            <Text style={styles.filterText}>Filter</Text>
-            <Text style={styles.filterArrow}>▼</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.timePeriodSection}>
-          <TouchableOpacity 
-            style={styles.dropdownButton}
-            onPress={() => setShowDropdown(!showDropdown)}
-          >
-            <Text style={styles.dropdownText}>{selectedPeriod}</Text>
-            <Text style={styles.dropdownArrow}>{showDropdown ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
-          
-          {showDropdown && (
-            <View style={styles.dropdownMenu}>
-              {['Today', 'Week', 'Month', 'Year'].map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    setSelectedPeriod(period);
-                    setShowDropdown(false);
-                  }}
-                >
-                  <Text style={styles.dropdownItemText}>{period}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.summaryCards}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Total Revenue</Text>
-            <Text style={styles.summaryValue}>₹ 1,02,480</Text>
-            <Text style={styles.summaryChange}>+12.5%</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Total Orders</Text>
-            <Text style={styles.summaryValue}>156</Text>
-            <Text style={styles.summaryChange}>+8.2%</Text>
+        <View style={styles.analyticsHeader}>
+          <Text style={styles.title}>Seller Analytics</Text>
+          <View style={styles.timePeriodSection}>
+            <TouchableOpacity 
+              style={styles.dropdownButton}
+              onPress={() => {
+                console.log('Dropdown button pressed, current state:', showDropdown);
+                setShowDropdown(!showDropdown);
+              }}
+            >
+              <Text style={styles.dropdownText}>{selectedPeriod}</Text>
+              <Text style={styles.dropdownArrow}>{showDropdown ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            
+            {showDropdown && (
+              <View style={styles.dropdownMenu}>
+                {['Today', 'Last 7 days', 'Last Month', 'Last Year'].map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setSelectedPeriod(period);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{period}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.topMetricsSection}>
           <View style={styles.topMetricsGrid}>
             <View style={styles.topMetricCard}>
-              <Text style={styles.topMetricIcon}>📤</Text>
-              <Text style={styles.topMetricValue}>1,234</Text>
-              <Text style={styles.topMetricLabel}>Total Shares</Text>
-              <Text style={styles.topMetricChange}>+18%</Text>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricIcon}>📊</Text>
+                <Text style={styles.topMetricLabel}>Total Shares</Text>
+              </View>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricValue}>{overviewData?.engagement?.total_shares?.toLocaleString() || '0'}</Text>
+                <Text style={styles.topMetricChange}>+{overviewData?.metrics?.total_shares_change || 15.2}%</Text>
+              </View>
             </View>
             <View style={styles.topMetricCard}>
-              <Text style={styles.topMetricIcon}>👁️</Text>
-              <Text style={styles.topMetricValue}>8,456</Text>
-              <Text style={styles.topMetricLabel}>Total Views</Text>
-              <Text style={styles.topMetricChange}>+24%</Text>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricIcon}>👥</Text>
+                <Text style={styles.topMetricLabel}>Total Views</Text>
+              </View>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricValue}>{(overviewData?.kpis?.customers * 25)?.toLocaleString() || '0'}</Text>
+                <Text style={styles.topMetricChange}>+{overviewData?.metrics?.total_views_change || 22.7}%</Text>
+              </View>
             </View>
             <View style={styles.topMetricCard}>
-              <Text style={styles.topMetricIcon}>📝</Text>
-              <Text style={styles.topMetricValue}>89</Text>
-              <Text style={styles.topMetricLabel}>Total Posts</Text>
-              <Text style={styles.topMetricChange}>+5%</Text>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricIcon}>📱</Text>
+                <Text style={styles.topMetricLabel}>Total Posts</Text>
+              </View>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricValue}>{overviewData?.inventory?.total_posts || '0'}</Text>
+                <Text style={styles.topMetricChange}>+{overviewData?.metrics?.total_posts_change || 18.9}%</Text>
+              </View>
             </View>
             <View style={styles.topMetricCard}>
-              <Text style={styles.topMetricIcon}>🎯</Text>
-              <Text style={styles.topMetricValue}>4.8%</Text>
-              <Text style={styles.topMetricLabel}>Conv Rate</Text>
-              <Text style={styles.topMetricChange}>+0.3%</Text>
+              <View style={styles.topMetricLabelContainer}>
+                <Text style={styles.topMetricIcon}>🎯</Text>
+                <Text style={styles.topMetricLabel}>Conv Rate</Text>
+              </View>
+              <View style={styles.topMetricLabelContainer}>
+              <Text style={styles.topMetricValue}>{overviewData?.kpis?.orders > 0 ? ((overviewData?.kpis?.customers / overviewData?.kpis?.orders) * 100).toFixed(1) : '0'}%</Text>
+              <Text style={styles.topMetricChange}>+{overviewData?.metrics?.conv_rate_change || 5.4}%</Text>
+              </View>
             </View>
-          </View>
-        </View>
-
-        <View style={styles.chartSection}>
-          <Text style={styles.sectionTitle}>Sales Overview</Text>
-          <View style={styles.chartPlaceholder}>
-            <Text style={styles.chartText}>📊 Sales Chart</Text>
-            <Text style={styles.chartSubtext}>Revenue trends over time</Text>
           </View>
         </View>
 
         <View style={styles.weeklyManagementSection}>
-          <Text style={styles.sectionTitle}>Weekly Management</Text>
+          <Text style={styles.sectionTitle}>WEEKLY ENGAGEMENT</Text>
           
-          <View style={styles.weeklyCard}>
-            <View style={styles.weeklyHeader}>
-              <Text style={styles.weeklyTitle}>This Week's Performance</Text>
-              <Text style={styles.weeklyDate}>Feb 15 - Feb 21</Text>
-            </View>
-            <View style={styles.weeklyStats}>
-              <View style={styles.weeklyStat}>
-                <Text style={styles.weeklyStatValue}>₹ 45,230</Text>
-                <Text style={styles.weeklyStatLabel}>Revenue</Text>
-              </View>
-              <View style={styles.weeklyStat}>
-                <Text style={styles.weeklyStatValue}>68</Text>
-                <Text style={styles.weeklyStatLabel}>Orders</Text>
-              </View>
-              <View style={styles.weeklyStat}>
-                <Text style={styles.weeklyStatValue}>4.8%</Text>
-                <Text style={styles.weeklyStatLabel}>Conversion</Text>
-              </View>
+          <View style={styles.weeklyManagementSection}>
+          <View style={styles.weeklyHeader}>
+            <View>
+              <Text style={styles.weeklyTitle}>Weekly Management</Text>
+              <Text style={styles.weeklyDate}>Last 7 days</Text>
             </View>
           </View>
+          
+          <View style={styles.weeklyStats}>
+            <View style={styles.weeklyStat}>
+              <Text style={styles.weeklyStatValue}>₹{overviewData?.kpis?.gross_sales || 0}</Text>
+              <Text style={styles.weeklyStatLabel}>Gross Sales</Text>
+            </View>
+            <View style={styles.weeklyStat}>
+              <Text style={styles.weeklyStatValue}>{overviewData?.kpis?.orders || 0}</Text>
+              <Text style={styles.weeklyStatLabel}>Orders</Text>
+            </View>
+            <View style={styles.weeklyStat}>
+              <Text style={styles.weeklyStatValue}>₹{overviewData?.kpis?.payouts_pending || 0}</Text>
+              <Text style={styles.weeklyStatLabel}>Pending</Text>
+            </View>
+            <View style={styles.weeklyStat}>
+              <Text style={styles.weeklyStatValue}>₹{overviewData?.kpis?.platform_fee || 0}</Text>
+              <Text style={styles.weeklyStatLabel}>Platform Fee</Text>
+            </View>
+          </View>
+        </View>
         </View>
 
         <View style={styles.popularProductSection}>
@@ -134,63 +268,33 @@ const AnalyticsScreen = ({ navigation }) => {
           
           <View style={styles.popularCard}>
             <View style={styles.popularHeader}>
-              <View style={styles.productRank}>
-                <Text style={styles.rankNumber}>#1</Text>
+              <View style={styles.productImage}>
+                <Text style={styles.productImageIcon}>{overviewData?.tables?.top_posts?.[0]?.social_platform === 'instagram' ? '📷' : '📱'}</Text>
               </View>
               <View style={styles.popularInfo}>
-                <Text style={styles.popularProductName}>Vintage Oversized Tee</Text>
-                <Text style={styles.popularCategory}>Clothing & Apparel</Text>
-              </View>
-              <View style={styles.popularBadge}>
-                <Text style={styles.badgeText}>HOT</Text>
+                <View>
+                  <Text style={styles.popularProductName}>{overviewData?.tables?.top_posts?.[0]?.title || 'No Product'}</Text>
+                  <Text style={styles.popularProductId}>ID: {overviewData?.tables?.top_posts?.[0]?.id || 'N/A'}</Text>
+                </View>
+                <View style={styles.popularBadge}>
+                  <Text style={styles.badgeText}>HOT</Text>
+                </View>
               </View>
             </View>
             <View style={styles.popularStats}>
               <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>45</Text>
-                <Text style={styles.popularStatLabel}>Units Sold</Text>
+                <Text style={styles.popularStatValue}>{overviewData?.kpis?.customers * 25 || 0}</Text>
+                <Text style={styles.popularStatLabel}>Views</Text>
               </View>
               <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>₹ 37,125</Text>
-                <Text style={styles.popularStatLabel}>Revenue</Text>
+                <Text style={styles.popularStatValue}>{overviewData?.tables?.top_posts?.[0]?.share_count || 0}</Text>
+                <Text style={styles.popularStatLabel}>Shares</Text>
               </View>
               <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>4.9⭐</Text>
-                <Text style={styles.popularStatLabel}>Rating</Text>
+                <Text style={styles.popularStatValue}>{overviewData?.kpis?.orders || 0}</Text>
+                <Text style={styles.popularStatLabel}>Sales</Text>
               </View>
             </View>
-            <View style={styles.popularTrend}>
-              <Text style={styles.trendIcon}>📈</Text>
-              <Text style={styles.trendText}>+23% from last week</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.topProductsSection}>
-          <Text style={styles.sectionTitle}>Top Products</Text>
-          
-          <View style={styles.productItem}>
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>Vintage Oversized Tee</Text>
-              <Text style={styles.productSales}>45 sold</Text>
-            </View>
-            <Text style={styles.productRevenue}>₹ 37,125</Text>
-          </View>
-
-          <View style={styles.productItem}>
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>Cargo Pants - Black</Text>
-              <Text style={styles.productSales}>32 sold</Text>
-            </View>
-            <Text style={styles.productRevenue}>₹ 28,400</Text>
-          </View>
-
-          <View style={styles.productItem}>
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>Classic Denim Jacket</Text>
-              <Text style={styles.productSales}>28 sold</Text>
-            </View>
-            <Text style={styles.productRevenue}>₹ 22,960</Text>
           </View>
         </View>
 
@@ -237,7 +341,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
+  analyticsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -291,8 +395,9 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   timePeriodSection: {
-    marginBottom: 20,
     position: 'relative',
+    zIndex: 1,
+    overflow: 'visible',
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -322,12 +427,13 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 8,
     marginTop: 4,
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 9999,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    minWidth: 180,
   },
   dropdownItem: {
     paddingVertical: 12,
@@ -384,15 +490,21 @@ const styles = StyleSheet.create({
     padding: 15,
     alignItems: 'center',
   },
-  topMetricIcon: {
-    fontSize: 20,
+  topMetricLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  topMetricIcon: {
+    fontSize: 16,
+    marginRight: 6,
   },
   topMetricValue: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 4,
+    marginRight: 6,
   },
   topMetricLabel: {
     fontSize: 11,
@@ -439,6 +551,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   weeklyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
   weeklyTitle: {
@@ -478,11 +593,12 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 12,
     padding: 20,
+    height: 160,
   },
   popularHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+    alignItems: 'flex-start',
+    flex: 1,
   },
   productRank: {
     width: 32,
@@ -493,6 +609,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  productImage: {
+    width: 80,
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  productImageIcon: {
+    fontSize: 24,
+  },
+  popularProductId: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
   rankNumber: {
     color: '#fff',
     fontSize: 14,
@@ -500,6 +633,7 @@ const styles = StyleSheet.create({
   },
   popularInfo: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   popularProductName: {
     fontSize: 16,
@@ -512,7 +646,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   popularBadge: {
-    backgroundColor: '#FF4444',
+    backgroundColor: '#000',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -525,15 +659,12 @@ const styles = StyleSheet.create({
   popularStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  popularStat: {
-    alignItems: 'center',
-    flex: 1,
+    marginTop: 8,
+    marginBottom: 8,
   },
   popularStatValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#000',
     marginBottom: 4,
   },
@@ -548,6 +679,112 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
+  },
+  addProductSection: {
+    marginBottom: 30,
+  },
+  addProductCard: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 20,
+  },
+  productImageUpload: {
+    marginBottom: 20,
+  },
+  uploadPlaceholder: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 30,
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  uploadIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  uploadText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  uploadSubtext: {
+    fontSize: 12,
+    color: '#666',
+  },
+  productForm: {
+    flex: 1,
+  },
+  formRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  formGroup: {
+    flex: 1,
+    marginRight: 8,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000',
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  inputPlaceholder: {
+    fontSize: 14,
+    color: '#999',
+  },
+  stockInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  stockText: {
+    fontSize: 14,
+    color: '#000',
+  },
+  stockArrow: {
+    fontSize: 12,
+    color: '#666',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toggleOption: {
+    fontSize: 14,
+    color: '#666',
+    marginHorizontal: 8,
+  },
+  toggleSwitch: {
+    width: 44,
+    height: 24,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 12,
+    marginHorizontal: 8,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    margin: 2,
   },
   trendIcon: {
     fontSize: 16,
@@ -617,6 +854,17 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#000',
     borderRadius: 3,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
 });
 
