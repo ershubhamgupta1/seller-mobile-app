@@ -268,6 +268,7 @@ const AnalyticsScreen = ({ navigation }) => {
           
           <View style={styles.popularCard}>
             <View style={styles.popularHeader}>
+
               <View style={styles.productImage}>
                 <Text style={styles.productImageIcon}>{overviewData?.tables?.top_posts?.[0]?.social_platform === 'instagram' ? '📷' : '📱'}</Text>
               </View>
@@ -276,23 +277,23 @@ const AnalyticsScreen = ({ navigation }) => {
                   <Text style={styles.popularProductName}>{overviewData?.tables?.top_posts?.[0]?.title || 'No Product'}</Text>
                   <Text style={styles.popularProductId}>ID: {overviewData?.tables?.top_posts?.[0]?.id || 'N/A'}</Text>
                 </View>
-                <View style={styles.popularBadge}>
-                  <Text style={styles.badgeText}>HOT</Text>
+                <View style={styles.popularStats}>
+                  <View style={styles.popularStat}>
+                    <Text style={styles.popularStatValue}>{overviewData?.kpis?.customers * 25 || 0}</Text>
+                    <Text style={styles.popularStatLabel}>Views</Text>
+                  </View>
+                  <View style={styles.popularStat}>
+                    <Text style={styles.popularStatValue}>{overviewData?.tables?.top_posts?.[0]?.share_count || 0}</Text>
+                    <Text style={styles.popularStatLabel}>Shares</Text>
+                  </View>
+                  <View style={styles.popularStat}>
+                    <Text style={styles.popularStatValue}>{overviewData?.kpis?.orders || 0}</Text>
+                    <Text style={styles.popularStatLabel}>Sales</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-            <View style={styles.popularStats}>
-              <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>{overviewData?.kpis?.customers * 25 || 0}</Text>
-                <Text style={styles.popularStatLabel}>Views</Text>
-              </View>
-              <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>{overviewData?.tables?.top_posts?.[0]?.share_count || 0}</Text>
-                <Text style={styles.popularStatLabel}>Shares</Text>
-              </View>
-              <View style={styles.popularStat}>
-                <Text style={styles.popularStatValue}>{overviewData?.kpis?.orders || 0}</Text>
-                <Text style={styles.popularStatLabel}>Sales</Text>
+              <View style={styles.popularBadge}>
+                <Text style={styles.badgeText}>HOT</Text>
               </View>
             </View>
           </View>
@@ -313,7 +314,7 @@ const AnalyticsScreen = ({ navigation }) => {
 
           <View style={styles.trafficItem}>
             <View style={styles.trafficInfo}>
-              <Text style={styles.trafficSource}>QR Code</Text>
+              <Text style={styles.trafficSource}>TikTok</Text>
               <Text style={styles.trafficPercentage}>30%</Text>
             </View>
             <View style={styles.trafficBar}>
@@ -323,7 +324,7 @@ const AnalyticsScreen = ({ navigation }) => {
 
           <View style={styles.trafficItem}>
             <View style={styles.trafficInfo}>
-              <Text style={styles.trafficSource}>Direct</Text>
+              <Text style={styles.trafficSource}>Direct Link</Text>
               <Text style={styles.trafficPercentage}>25%</Text>
             </View>
             <View style={styles.trafficBar}>
@@ -346,7 +347,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
   },
   logo: {
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   popularHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    flex: 1,
+    // flex: 1,
   },
   productRank: {
     width: 32,
@@ -617,6 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    flex: 2
   },
   productImageIcon: {
     fontSize: 24,
@@ -632,7 +633,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   popularInfo: {
-    flex: 1,
+    flex: 4,
     justifyContent: 'space-between',
   },
   popularProductName: {
@@ -650,6 +651,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+    flex: 1
   },
   badgeText: {
     color: '#fff',

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import Header from '../components/Header';
 
 const SettingsScreen = ({ navigation }) => {
   const { logout } = useAuth();
@@ -27,18 +28,11 @@ const SettingsScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>E-KOM</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>🔔</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.icon}>👤</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
+      <Header
+        title="Settings"
+        onNotificationPress={() => console.log('Notification pressed')}
+        onProfilePress={() => navigation.navigate('Settings')}
+      />
       <View style={styles.content}>
         <View style={styles.trustMeterSection}>
           <View style={styles.sectionHeader}>
@@ -48,11 +42,11 @@ const SettingsScreen = ({ navigation }) => {
           <View style={styles.statusTag}>
             <Text style={styles.statusText}>STATUS: PENDING</Text>
           </View>
+        </View>
           <View style={styles.trustCard}>
             <Text style={styles.trustScore}>65% Trust Score</Text>
             <Text style={styles.trustDescription}>Complete 2 more steps to reach 100% and get your badge.</Text>
           </View>
-        </View>
 
         <View style={styles.gstSection}>
           <Text style={styles.sectionTitle}>GST Number</Text>
@@ -136,10 +130,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   trustMeterSection: {
-    marginBottom: 30,
+    marginBottom: 15,
+    flexDirection:'row'
   },
   sectionHeader: {
-    marginBottom: 15,
+    flex: 1
   },
   sectionTitle: {
     fontSize: 18,
@@ -156,8 +151,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: 10,
     marginBottom: 15,
+    flex:1
   },
   statusText: {
     fontSize: 12,
@@ -168,6 +164,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     padding: 20,
     borderRadius: 10,
+    marginBottom: 15,
+    flex:1
   },
   trustScore: {
     fontSize: 24,
