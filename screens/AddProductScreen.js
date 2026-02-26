@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
-import { ImagePicker, FileSystem } from 'expo';
 import { inventory } from '../services/api';
 import Header from '../components/Header';
 

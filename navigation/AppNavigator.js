@@ -28,8 +28,6 @@ const MainTabs = () => {
             iconName = focused ? '📋' : '📋';
           } else if (route.name === 'Add') {
             iconName = '➕';
-          } else if (route.name === 'QRCode') {
-            iconName = focused ? '📱' : '📱';
           } else if (route.name === 'Analytics') {
             iconName = focused ? '📊' : '📊';
           } else if (route.name === 'Settings') {
