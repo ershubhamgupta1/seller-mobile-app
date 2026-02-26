@@ -7,7 +7,6 @@ import { useAuth } from '../contexts/AuthContext';
 import HomeScreen from '../screens/HomeScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import AddProductScreen from '../screens/AddProductScreen';
-import QRCodeScreen from '../screens/QRCodeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import LoginScreen from '../screens/LoginScreen';
@@ -52,7 +51,7 @@ const MainTabs = () => {
         name="Home" 
         component={HomeScreen}
         options={{ 
-          title: 'E-KOM',
+          headerShown: false,
           tabBarLabel: 'Home'
         }}
       />
@@ -60,43 +59,36 @@ const MainTabs = () => {
         name="Orders" 
         component={OrdersScreen}
         options={{ 
-          title: 'Orders',
-          tabBarLabel: 'Orders'
+          headerShown: false,
+          tabBarLabel: 'Inventory'
         }}
       />
       <Tab.Screen 
         name="Add" 
         component={AddProductScreen}
         options={{ 
+          headerShown: false,
           tabBarLabel: 'Add',
           tabBarIcon: ({ focused, color, size }) => (
-            <View style={[styles.addButton, focused && styles.addButtonFocused]}>
-              <Text style={[styles.addIcon, { color, fontSize: size * 1.5 }]}>+</Text>
+            <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
+              <Text style={[styles.addIcon, { color: focused? '#fff': focused, fontSize: size * 1.5 }]}>+</Text>
             </View>
           )
-        }}
-      />
-      <Tab.Screen 
-        name="QRCode" 
-        component={QRCodeScreen}
-        options={{ 
-          title: 'QR Code',
-          tabBarLabel: 'QR Code'
         }}
       />
       <Tab.Screen 
         name="Analytics" 
         component={AnalyticsScreen}
         options={{ 
-          title: 'Analytics',
-          tabBarLabel: 'Analytics'
+          headerShown: false,
+          tabBarLabel: 'Sales'
         }}
       />
       <Tab.Screen 
         name="Settings" 
         component={SettingsScreen}
         options={{ 
-          title: 'Settings',
+          headerShown: false,
           tabBarLabel: 'Settings'
         }}
       />
