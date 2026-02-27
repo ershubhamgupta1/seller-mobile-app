@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { orders } from '../services/api';
 import Header from '../components/Header';
+import { FontAwesome } from '@expo/vector-icons';
+import Octicons from '@expo/vector-icons/Octicons';
 
 const OrdersScreen = ({ navigation }) => {
   const [autoDecrement, setAutoDecrement] = useState(true);
@@ -108,8 +110,8 @@ const OrdersScreen = ({ navigation }) => {
         <View style={styles.ordersHeader}>
           <Text style={styles.ordersTitle}>Orders</Text>
           <TouchableOpacity style={styles.filterButton}>
+            <FontAwesome name="filter" size={14} style={{paddingTop: 4, marginRight: 4}} color="black" />
             <Text style={styles.filterText}>Filter</Text>
-            <Text style={styles.filterArrow}>▼</Text>
           </TouchableOpacity>
         </View>
 
@@ -142,19 +144,23 @@ const OrdersScreen = ({ navigation }) => {
 
         <View style={styles.summaryCards}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryIcon}>▲</Text>
             <Text style={styles.summaryTitle}>STOCK ALERTS</Text>
-            <Text style={styles.summaryValue}>2 items low</Text>
+            <View style={styles.summaryStockAlertContainer}>
+              <FontAwesome name="warning" size={14} style={{paddingTop: 4, marginRight: 4}} color="black" />
+              <Text style={styles.summaryValue}>2 items low</Text>
+            </View>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryIcon}>📊</Text>
             <Text style={styles.summaryTitle}>TODAY'S SALES</Text>
-            <Text style={styles.summaryValue}>{ordersData.length} orders</Text>
+            <View style={styles.summaryStockAlertContainer}>
+              <Octicons name="graph" size={14} style={{paddingTop: 4, marginRight: 4}} color="black" />
+              <Text style={styles.summaryValue}>{ordersData.length} orders</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.pendingSection}>
-          <Text style={styles.sectionTitle}>PENDING ACTION</Text>
+          <Text style={{...styles.sectionTitle, paddingBottom: 10, fontSize: 10}}>PENDING ACTION</Text>
           
           {ordersData.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -219,7 +225,10 @@ const OrdersScreen = ({ navigation }) => {
                   )}
                   <TouchableOpacity style={styles.chatButton}>
                     <Text style={item.status === 'PACKED' ? styles.phoneIcon : styles.chatIcon}>
-                      {item.status === 'PACKED' ? '📞' : '💬'}
+                      {item.status === 'PACKED' ? 
+                        <FontAwesome name="phone" size={16} color="666" /> : 
+                        <FontAwesome name="whatsapp" size={16} color="666" />
+                      }
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -235,7 +244,7 @@ const OrdersScreen = ({ navigation }) => {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Inventory Logic</Text>
             <TouchableOpacity style={styles.refreshIcon}>
-              <Text style={styles.icon}>🔄</Text>
+              <FontAwesome name="refresh" size={16} color="#666" />
             </TouchableOpacity>
           </View>
           <View style={styles.toggleItem}>
@@ -245,7 +254,7 @@ const OrdersScreen = ({ navigation }) => {
               onValueChange={setAutoDecrement}
             />
           </View>
-          <View style={styles.toggleItem}>
+          <View style={{...styles.toggleItem, borderBottomWidth:0}}>
             <Text style={styles.toggleLabel}>Low Stock Notification</Text>
             <Switch
               value={lowStockNotification}
@@ -305,7 +314,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#f5f5f5',
   },
   filterText: {
     fontSize: 14,
@@ -365,14 +376,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
+  summaryStockAlertContainer: {
+    flexDirection: 'row'
+  },
+
   pendingSection: {
     marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 15,
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#666',
+    // marginBottom: 15,
   },
   orderCard: {
     backgroundColor: '#fff',
@@ -391,7 +406,7 @@ const styles = StyleSheet.create({
   orderId: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: '#666',
   },
   newBadge: {
     backgroundColor: '#000',
@@ -506,6 +521,10 @@ const styles = StyleSheet.create({
   },
   inventorySection: {
     marginBottom: 30,
+    backgroundColor:'#f5f5f5',
+    padding: 15,
+    borderRadius: 8,
+
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -520,13 +539,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    // paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e0e0e0',
   },
   toggleLabel: {
-    fontSize: 16,
-    color: '#000',
+    fontSize: 12,
+    color: '#666',
   },
   shippedBadge: {
     backgroundColor: '#4CAF50',

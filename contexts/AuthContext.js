@@ -19,6 +19,13 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status on app start
   useEffect(() => {
     checkAuthStatus();
+    
+    // Set up periodic auth check every 30 seconds
+    const interval = setInterval(() => {
+      checkAuthStatus();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const checkAuthStatus = async () => {
@@ -28,10 +35,16 @@ export const AuthProvider = ({ children }) => {
         const userData = await businessAuth.getMe();
         setUser(userData);
         setIsAuthenticated(true);
+      } else {
+        // No token found, set as unauthenticated
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       await removeAuthToken();
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }

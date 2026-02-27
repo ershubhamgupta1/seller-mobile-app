@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Image, View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { shop } from '../services/api';
 import Header from '../components/Header';
+import { FontAwesome5 } from '@expo/vector-icons';
+import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
 
 const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState(null);
+  const uniqueLink = 'e-kom.io/yourshop';
 
   useEffect(() => {
     fetchShopData();
@@ -31,6 +37,60 @@ const HomeScreen = ({ navigation }) => {
       </View>
     );
   }
+  const downloadQR = async (uri) => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      console.log('status======', )
+      if (status !== "granted") {
+        Alert.alert("Permission required to save image");
+        return;
+      }
+
+      // If it's a remote URL → download first
+      let localUri = uri;
+      if (uri.startsWith("http")) {
+        const fileUri = FileSystem.documentDirectory + "qr-code.png";
+        const download = await FileSystem.downloadAsync(uri, fileUri);
+        localUri = download.uri;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert("Success", "QR Code saved to gallery");
+    } catch (err) {
+      console.log(err);
+    }
+  };
+  const shareQR = async (uri) => {
+    try {
+      let localUri = uri;
+
+      if (uri.startsWith("http")) {
+        const fileUri = FileSystem.documentDirectory + "qr-code.png";
+        const download = await FileSystem.downloadAsync(uri, fileUri);
+        localUri = download.uri;
+      }
+
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert("Sharing not available on this device");
+        return;
+      }
+
+      await Sharing.shareAsync(localUri, {
+        mimeType: "image/png",
+        dialogTitle: "Share QR Code",
+      });
+    } 
+    catch (err) {
+      console.log(err);
+    }
+  };
+  const qrImageUrl =
+    "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://example.com";
+
+    const handleCopy = async () => {
+    await Clipboard.setStringAsync(uniqueLink);
+    setCopied(true);
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -43,31 +103,46 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.content}>
         <View style={styles.qrSection}>
           <Text style={styles.sectionTitle}>Your Shop QR</Text>
+          <Text style={styles.sectionDescription}>One code for all your products</Text>
+
           <View style={styles.qrPlaceholder}>
-            <View style={styles.qrCode}>
-              <Text style={styles.qrText}>QR Code</Text>
+            <View style={styles.qrWrapper}>
+            <Image
+              source={{ uri: qrImageUrl }}
+              style={styles.qrImage}
+              resizeMode="contain"
+            />
             </View>
           </View>
           <View style={styles.qrButtons}>
-            <TouchableOpacity style={styles.qrButton}>
-              <Text style={styles.qrButtonText}>Download</Text>
+            <TouchableOpacity style={styles.qrButton} onPress={() => downloadQR(qrImageUrl)}>
+              <View style={styles.qrButtonContent}>
+                <FontAwesome5 name="download" size={14} color="#fff" />
+                <Text style={styles.qrButtonText}>Download</Text>
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.qrButton}>
-              <Text style={styles.qrButtonText}>Share</Text>
+            <TouchableOpacity style={styles.qrButton} onPress={() => shareQR(qrImageUrl)}>
+              <View style={styles.qrButtonContent}>
+                <FontAwesome5 name="whatsapp" size={14} color="#fff" />
+                <Text style={styles.qrButtonText}>Share</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.bioSection}>
-          <Text style={styles.sectionTitle}>BIO-LINK FOR SOCIALS</Text>
+          <Text style={{...styles.sectionTitle}}>BIO-LINK FOR SOCIALS</Text>
           <View style={styles.bioLink}>
-            <Text style={styles.bioUrl}>e-kom.io/yourshop</Text>
-            <TouchableOpacity style={styles.copyButton}>
-              <Text style={styles.copyText}>Copy</Text>
+            <View style={styles.bioUrlContainer}>
+              <Text style={styles.bioUrlTitle}>YOUR UNIQUE LINK</Text>
+              <Text style={styles.bioUrl}>{uniqueLink}</Text>
+            </View>
+            <TouchableOpacity style={styles.copyButton} onPress={handleCopy}>
+                <FontAwesome5 name="copy" size={12} color="#fff"/>
             </TouchableOpacity>
           </View>
           <Text style={styles.bioDescription}>
-            Share this link on Instagram, Facebook, WhatsApp status etc. to drive traffic to your shop.
+            Add this to your Instagram or TikTok bio to drive traffic.
           </Text>
         </View>
 
@@ -79,7 +154,7 @@ const HomeScreen = ({ navigation }) => {
             </View>
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Print & Engrave</Text>
-              <Text style={styles.stepDescription}>Print QR code on packaging, receipts, or engrave on products</Text>
+              <Text style={styles.stepDescription}>Print the QR Code and place it on your shop counter or product packaging.</Text>
             </View>
           </View>
           <View style={styles.stepItem}>
@@ -88,25 +163,26 @@ const HomeScreen = ({ navigation }) => {
             </View>
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Social Traffic</Text>
-              <Text style={styles.stepDescription}>Share bio-link on social media to drive traffic</Text>
+              <Text style={styles.stepDescription}>Paste your Bio-Link in your Instagram profile to let followers browse your full inventory. </Text>
             </View>
           </View>
         </View>
       </View>
 
-        <View style={styles.stickerSection}>
-          <View style={styles.stickerCard}>
-            <View style={styles.stickerContent}>
-              <Text style={styles.stickerIcon}>🏷️</Text>
-              <View style={styles.stickerInfo}>
-                <Text style={styles.stickerTitle}>Need custom stickers?</Text>
-                <Text style={styles.stickerDescription}>
-                  Order high-quality QR stickers for your shop front.
-                </Text>
-              </View>
+      <View style={styles.stickerSection}>
+        <View style={styles.stickerCard}>
+          <View style={styles.stickerContent}>
+            <FontAwesome5 style={styles.stickerIcon} name="print" size={24} color="#fff" solid />
+            <View style={styles.stickerInfo}>
+              <Text style={styles.stickerTitle}>Need custom stickers?</Text>
+              <Text style={styles.stickerDescription}>
+                Order high-quality QR stickers for your shop front.
+              </Text>
             </View>
+            <FontAwesome5 name="chevron-right" size={16} color="#666" />
           </View>
         </View>
+      </View>
     </ScrollView>
   );
 };
@@ -124,10 +200,15 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    marginBottom: 5,
+    color: '#666',
+    fontSize: 14, 
+    fontWeight: '400', 
+  },
+  sectionDescription: {
+    fontSize: 12,
     marginBottom: 20,
-    color: '#000',
+    color: '#666',
   },
   qrPlaceholder: {
     width: 200,
@@ -138,21 +219,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  qrCode: {
+   qrWrapper: {
+    padding: 20,
+    backgroundColor: "white",
+    borderRadius: 16,
+    elevation: 4, // Android shadow
+    shadowColor: "#000", // iOS shadow
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  qrImage: {
     width: 150,
     height: 150,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qrText: {
-    fontSize: 14,
-    color: '#666',
   },
   qrButtons: {
     flexDirection: 'row',
     gap: 15,
+  },
+  qrButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   qrButton: {
     backgroundColor: '#000',
@@ -177,8 +264,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 10,
   },
-  bioUrl: {
+  bioUrlContainer: {
     flex: 1,
+    fontSize: 14,
+    color: '#000',
+  },
+  bioUrlTitle: {
+    fontSize: 10,
+    color: '#666',
+  },
+  bioUrl: {
     fontSize: 14,
     color: '#000',
   },
@@ -203,6 +298,9 @@ const styles = StyleSheet.create({
   stepItem: {
     flexDirection: 'row',
     marginBottom: 20,
+    backgroundColor: '#f5f5f5',
+    padding: 15,
+    borderRadius: 10
   },
   stepNumber: {
     width: 24,
@@ -212,6 +310,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+    marginTop: 5
   },
   stepNumberText: {
     color: '#fff',
@@ -223,7 +322,7 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 4,
     color: '#000',
   },
@@ -234,6 +333,7 @@ const styles = StyleSheet.create({
   },
   stickerSection: {
     marginBottom: 30,
+    marginHorizontal: 15
   },
   stickerCard: {
     backgroundColor: '#000',
@@ -250,6 +350,7 @@ const styles = StyleSheet.create({
   },
   stickerInfo: {
     flex: 1,
+    marginRight: 20
   },
   stickerTitle: {
     fontSize: 16,

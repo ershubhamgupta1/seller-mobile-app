@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, Alert } from 'react-native';
+import { Image, View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Switch, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
+import { FontAwesome5 } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import * as ImagePicker from 'expo-image-picker';
+import AddPhotoBox from '../components/AddPhotoBox';
 
 const SettingsScreen = ({ navigation }) => {
   const { logout } = useAuth();
   const [autoDecrement, setAutoDecrement] = useState(true);
   const [lowStockNotification, setLowStockNotification] = useState(false);
+  const [image, setImage] = useState(null);
 
   const handleLogout = () => {
     Alert.alert(
@@ -25,7 +30,26 @@ const SettingsScreen = ({ navigation }) => {
       ]
     );
   };
+const takePhoto = async () => {
+    // Ask camera permission
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
+    if (status !== "granted") {
+      Alert.alert("Permission required", "Camera permission is required.");
+      return;
+    }
+
+    // Launch camera
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      console.log('result.assets[0].uri============', )
+      setImage(result.assets[0].uri);
+    }
+  };
   return (
     <ScrollView style={styles.container}>
       <Header
@@ -44,14 +68,20 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </View>
           <View style={styles.trustCard}>
-            <Text style={styles.trustScore}>65% Trust Score</Text>
+            <View style={{flexDirection: 'row'}}>
+              <Text style={styles.trustScore}>65%</Text>
+              <Text style={styles.trustScoreTitle}>Trust Score</Text>
+            </View>
             <Text style={styles.trustDescription}>Complete 2 more steps to reach 100% and get your badge.</Text>
           </View>
 
         <View style={styles.gstSection}>
-          <Text style={styles.sectionTitle}>GST Number</Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10}}>
+            <FontAwesome5 style={{flex: 1}} name="file-alt" size={20} color="#555" />
+            <Text style={{...styles.sectionTitle, flex: 10, fontSize: 14}}>GST Number</Text>
+            <FontAwesome5 style={{flex: 1}} name="check-circle" size={20} color="#555" />
+          </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.checkIcon}>✓</Text>
             <TextInput
               style={styles.input}
               value="22AAAAA0000A1Z5"
@@ -59,24 +89,27 @@ const SettingsScreen = ({ navigation }) => {
             />
           </View>
         </View>
-
-        <View style={styles.photoSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Physical Shop Photo</Text>
-            <View style={styles.actionTag}>
-              <Text style={styles.actionText}>Action Required</Text>
-            </View>
+        <View style={styles.gstSection}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10}}>
+            <FontAwesome5 style={{flex: 1}} name="store" size={20} color="#555" />
+            <Text style={{...styles.sectionTitle, paddingLeft: 10, flex: 10, fontSize: 14}}>Physical Shop Photo</Text>
+            <Text style={{fontSize: 10}}>Action Required</Text>
           </View>
-          <TouchableOpacity style={styles.uploadBox}>
-            <Text style={styles.cameraIcon}>📷</Text>
-            <Text style={styles.uploadText}>Upload storefront with signage</Text>
+          <TouchableOpacity style={styles.imageUploadContainer} onPress={takePhoto}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.imageUploadImage} />
+            ) : (
+              <AddPhotoBox title={'Upload storefront with signage'} icon={<FontAwesome5 name="camera" size={28} color="#888" />}/>
+            )}
           </TouchableOpacity>
         </View>
-
-        <View style={styles.socialSection}>
-          <Text style={styles.sectionTitle}>Social Media Verification</Text>
+        <View style={styles.gstSection}>
+          <View style={{flexDirection: 'row', marginBottom: 10,  width: '100%'}}>
+            <FontAwesome5 name="instagram" size={20} color="#666"/>
+            <Text style={{...styles.sectionTitle, fontSize: 14, paddingLeft: 10}}>Social Media Verification</Text>
+          </View>
           <TextInput
-            style={styles.input}
+            style={{...styles.input, borderColor: '#e0e0e0', borderWidth: 1, width: '100%', borderRadius: 6}}
             placeholder="Instagram Profile Link"
             placeholderTextColor="#999"
           />
@@ -84,16 +117,10 @@ const SettingsScreen = ({ navigation }) => {
         </View>
 
         <TouchableOpacity style={styles.submitButton}>
-          <Text style={styles.submitIcon}>✈️</Text>
+          <Feather name="send" size={16} color="#fff" />
           <Text style={styles.submitText}>Submit for Review</Text>
         </TouchableOpacity>
         <Text style={styles.reviewNote}>Review typically takes 24-48 hours</Text>
-
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutIcon}>🚪</Text>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -134,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection:'row'
   },
   sectionHeader: {
-    flex: 1
+    flex: 2,
   },
   sectionTitle: {
     fontSize: 18,
@@ -156,7 +183,7 @@ const styles = StyleSheet.create({
     flex:1
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#666',
   },
@@ -168,18 +195,33 @@ const styles = StyleSheet.create({
     flex:1
   },
   trustScore: {
-    fontSize: 24,
+    fontSize: 40,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
   },
+  trustScoreTitle: {
+    fontSize: 14, 
+    paddingTop:20, 
+    textAlignVertical: 'center', 
+    paddingLeft: 10, 
+    color:'#666'
+  },
   trustDescription: {
-    fontSize: 14,
+    fontSize: 10,
     color: '#ccc',
     lineHeight: 18,
   },
   gstSection: {
     marginBottom: 30,
+    borderRadius: 16,
+    padding: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderStyle: 'solid',
+
   },
   inputContainer: {
     flexDirection: 'row',
@@ -187,7 +229,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 15,
-    paddingVertical: 12,
   },
   checkIcon: {
     fontSize: 18,
@@ -196,11 +237,19 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 12,
     color: '#000',
   },
   photoSection: {
     marginBottom: 30,
+        borderRadius: 16,
+    padding: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderStyle: 'solid',
+
   },
   actionTag: {
     backgroundColor: '#FF9800',
@@ -255,6 +304,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    paddingLeft: 6,
   },
   reviewNote: {
     textAlign: 'center',
@@ -298,6 +348,32 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  imageUploadContainer: {
+    height: 150,
+    width: '100%',
+    // borderWidth: 2,
+    // borderColor: "#ccc",
+    // borderStyle: "dashed",
+    // borderRadius: 12,
+    // padding: 30,
+    // justifyContent: "center",
+    // alignItems: "center",
+  },
+  imageUploadPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageUploadText: {
+    marginTop: 10,
+    color: "#777",
+    fontSize: 14,
+  },
+  imageUploadImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
   },
 });
 

@@ -7,6 +7,16 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow app to save QR codes to your gallery",
+          "savePhotosPermission": "Allow app to save QR codes",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ],    
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

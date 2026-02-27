@@ -3,6 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_BASE = 'http://89.127.232.81';
 const TOKEN_KEY = '@business_token';
 
+// Global navigation reference for redirects
+let navigationRef = null;
+
+export const setNavigationRef = (ref) => {
+  navigationRef = ref;
+};
+
 export const setAuthToken = async (token) => {
   try {
     await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -52,12 +59,29 @@ const apiRequest = async (endpoint, options = {}) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      // Handle authentication errors (401 Unauthorized)
+      if (response.status === 401) {
+        await removeAuthToken();
+        // The AuthContext will detect the token removal and redirect to login
+        console.warn('Authentication expired - redirecting to login');
+        return;
+      }
+      
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return await response.json();
   } catch (error) {
     console.error('API request error:', error);
+    
+    // Handle network errors or other auth-related issues
+    if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+      await removeAuthToken();
+      console.warn('Authentication error - redirecting to login');
+      return;
+    }
+    
     throw error;
   }
 };

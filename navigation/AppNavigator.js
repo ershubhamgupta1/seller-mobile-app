@@ -3,6 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import { FontAwesome5 } from '@expo/vector-icons';
+import Octicons from '@expo/vector-icons/Octicons';
 
 import HomeScreen from '../screens/HomeScreen';
 import OrdersScreen from '../screens/OrdersScreen';
@@ -23,22 +25,27 @@ const MainTabs = () => {
           let iconName;
           
           if (route.name === 'Home') {
-            iconName = focused ? '🏠' : '🏠';
+            iconName = 'home';
+            return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Orders') {
-            iconName = focused ? '📋' : '📋';
+            iconName = 'box-open';
+            return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Add') {
-            iconName = '➕';
+            iconName = 'plus';
+            return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Analytics') {
-            iconName = focused ? '📊' : '📊';
+            iconName = 'graph';
+            return <Octicons name={iconName} size={20} color={color} />;
           } else if (route.name === 'Settings') {
-            iconName = focused ? '⚙️' : '⚙️';
+            iconName = 'cog';
+            return <FontAwesome5 name={iconName} size={20} color={color} />;
           }
           
-          return <Text style={[styles.tabIcon, { color, fontSize: size }]}>{iconName}</Text>;
+          return <FontAwesome5 name={iconName} size={20} color={color} />;
         },
         tabBarActiveTintColor: '#000',
         tabBarInactiveTintColor: '#666',
-        tabBarStyle: [styles.tabBar, { paddingBottom: Math.max(insets.bottom, 5) }],
+        tabBarStyle: [styles.tabBar, { marginBottom: Math.max(insets.bottom, 5) }],
         tabBarLabelStyle: styles.tabLabel,
         tabBarShowLabel: true,
         headerStyle: styles.header,
@@ -69,7 +76,7 @@ const MainTabs = () => {
           tabBarLabel: 'Add',
           tabBarIcon: ({ focused, color, size }) => (
             <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
-              <Text style={[styles.addIcon, { color: focused? '#fff': focused, fontSize: size * 1.5 }]}>+</Text>
+              <FontAwesome5 name="plus" size={20} color={focused ? '#fff' : color} />
             </View>
           )
         }}
@@ -146,8 +153,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   addButton: {
-    width: 56,
-    height: 56,
+    width: 44,
+    height: 44,
     borderRadius: 28,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',

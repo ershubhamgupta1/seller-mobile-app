@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { analytics } from '../services/api';
 import Header from '../components/Header';
+import { FontAwesome5 } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import Octicons from '@expo/vector-icons/Octicons';
 
 const AnalyticsScreen = ({ navigation }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -190,7 +193,8 @@ const AnalyticsScreen = ({ navigation }) => {
           <View style={styles.topMetricsGrid}>
             <View style={styles.topMetricCard}>
               <View style={styles.topMetricLabelContainer}>
-                <Text style={styles.topMetricIcon}>📊</Text>
+                {/* <Text style={styles.topMetricIcon}>📊</Text> */}
+                <FontAwesome5 name="share-alt" size={20} style={styles.topMetricIcon}/>
                 <Text style={styles.topMetricLabel}>Total Shares</Text>
               </View>
               <View style={styles.topMetricLabelContainer}>
@@ -200,7 +204,7 @@ const AnalyticsScreen = ({ navigation }) => {
             </View>
             <View style={styles.topMetricCard}>
               <View style={styles.topMetricLabelContainer}>
-                <Text style={styles.topMetricIcon}>👥</Text>
+                <FontAwesome5 name="eye" size={20} style={styles.topMetricIcon}/>
                 <Text style={styles.topMetricLabel}>Total Views</Text>
               </View>
               <View style={styles.topMetricLabelContainer}>
@@ -210,7 +214,7 @@ const AnalyticsScreen = ({ navigation }) => {
             </View>
             <View style={styles.topMetricCard}>
               <View style={styles.topMetricLabelContainer}>
-                <Text style={styles.topMetricIcon}>📱</Text>
+            <Feather name="send" size={16} color="#000" style={styles.topMetricIcon}/>
                 <Text style={styles.topMetricLabel}>Total Posts</Text>
               </View>
               <View style={styles.topMetricLabelContainer}>
@@ -220,7 +224,7 @@ const AnalyticsScreen = ({ navigation }) => {
             </View>
             <View style={styles.topMetricCard}>
               <View style={styles.topMetricLabelContainer}>
-                <Text style={styles.topMetricIcon}>🎯</Text>
+                <Octicons name="graph" size={14} style={{...styles.topMetricIcon, paddingTop: 4, marginRight: 4}} color="black" />
                 <Text style={styles.topMetricLabel}>Conv Rate</Text>
               </View>
               <View style={styles.topMetricLabelContainer}>
@@ -304,6 +308,7 @@ const AnalyticsScreen = ({ navigation }) => {
           
           <View style={styles.trafficItem}>
             <View style={styles.trafficInfo}>
+              <FontAwesome5 name="instagram" size={20} color="#666" style={{marginRight: 8}}/>
               <Text style={styles.trafficSource}>Instagram</Text>
               <Text style={styles.trafficPercentage}>45%</Text>
             </View>
@@ -314,6 +319,7 @@ const AnalyticsScreen = ({ navigation }) => {
 
           <View style={styles.trafficItem}>
             <View style={styles.trafficInfo}>
+              <FontAwesome5 name="tiktok" size={20} color="#666" style={{marginRight: 8}}/>
               <Text style={styles.trafficSource}>TikTok</Text>
               <Text style={styles.trafficPercentage}>30%</Text>
             </View>
@@ -324,6 +330,7 @@ const AnalyticsScreen = ({ navigation }) => {
 
           <View style={styles.trafficItem}>
             <View style={styles.trafficInfo}>
+              <FontAwesome5 name="pinterest-p" size={20} color="#666" style={{marginRight: 8}}/>
               <Text style={styles.trafficSource}>Direct Link</Text>
               <Text style={styles.trafficPercentage}>25%</Text>
             </View>
@@ -496,8 +503,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   topMetricIcon: {
-    fontSize: 16,
+    fontSize: 14,
     marginRight: 6,
+    // backgroundColor: 'green'
   },
   topMetricValue: {
     fontSize: 18,
@@ -509,7 +517,9 @@ const styles = StyleSheet.create({
   topMetricLabel: {
     fontSize: 11,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 6,
+    paddingTop: 8,
+    textAlignVertical: 'bottom`'
   },
   topMetricChange: {
     fontSize: 10,
@@ -841,6 +851,7 @@ const styles = StyleSheet.create({
   trafficSource: {
     fontSize: 14,
     color: '#000',
+    flex: 10,
   },
   trafficPercentage: {
     fontSize: 14,

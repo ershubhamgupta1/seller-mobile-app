@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Linking, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { inventory } from '../services/api';
 import Header from '../components/Header';
+import { FontAwesome5 } from '@expo/vector-icons';
+import AddPhotoBox from '../components/AddPhotoBox';
+import { Feather } from "@expo/vector-icons";
 
 const AddProductScreen = ({ navigation }) => {
   const [socialLink, setSocialLink] = useState('');
   const [category, setCategory] = useState('Clothing & Apparel');
   const [material, setMaterial] = useState('');
-  const [sizeRange, setSizeRange] = useState('S, M, L, XL');
-  const [originalPrice, setOriginalPrice] = useState('$ 0.00');
-  const [offerPrice, setOfferPrice] = useState('$ 0.00');
+  const [sizeRange, setSizeRange] = useState('');
+  const [originalPrice, setOriginalPrice] = useState();
+  const [offerPrice, setOfferPrice] = useState('');
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,7 +70,34 @@ const AddProductScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+  const openInstagram = async (username) => {
+    const appUrl = `instagram://user?username=${username}`;
+    const webUrl = `https://www.instagram.com/${username}/`;
 
+    const supported = await Linking.canOpenURL(appUrl);
+
+    if (supported) {
+      await Linking.openURL(appUrl); // Opens Instagram app
+    } else {
+      await Linking.openURL(webUrl); // Fallback to browser
+    }
+  };
+
+  const openFacebook = async (pageName) => {
+    const appUrl = `fb://facewebmodal/f?href=https://www.facebook.com/${pageName}`;
+    const webUrl = `https://www.facebook.com/${pageName}`;
+
+    const supported = await Linking.canOpenURL("fb://");
+    await Linking.openURL(supported ? appUrl : webUrl);
+  };
+
+  const openPinterest = async (username) => {
+    const appUrl = `pinterest://user/${username}`;
+    const webUrl = `https://www.pinterest.com/${username}/`;
+
+    const supported = await Linking.canOpenURL(appUrl);
+    await Linking.openURL(supported ? appUrl : webUrl);
+  };
   return (
     <ScrollView style={styles.container}>
       <Header 
@@ -85,7 +115,7 @@ const AddProductScreen = ({ navigation }) => {
         <View style={styles.socialSection}>
           <Text style={styles.label}>Social Media Link</Text>
           <View style={styles.linkInputContainer}>
-            <Text style={styles.linkIcon}>🔗</Text>
+            <FontAwesome5 name="link" size={20} style={styles.linkIcon}/>
             <TextInput
               style={styles.linkInput}
               placeholder="Enter social media link"
@@ -100,13 +130,13 @@ const AddProductScreen = ({ navigation }) => {
           </TouchableOpacity>
           <View style={styles.socialIcons}>
             <TouchableOpacity style={styles.socialIcon}>
-              <Text style={styles.iconText}>📷</Text>
+              <FontAwesome5 name="instagram" size={20} color="#666" onPress={() => openInstagram("cristiano")} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialIcon}>
-              <Text style={styles.iconText}>📘</Text>
+              <FontAwesome5 name="facebook" size={20} color="#666" onPress={() => openFacebook("nike")}/>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialIcon}>
-              <Text style={styles.iconText}>📌</Text>
+            <TouchableOpacity style={styles.socialIcon} onPress={() => openPinterest("nike")}>
+              <FontAwesome5 name="pinterest-p" size={20} color="#666" />
             </TouchableOpacity>
           </View>
         </View>
@@ -115,18 +145,33 @@ const AddProductScreen = ({ navigation }) => {
           <Text style={styles.label}>PRODUCT IMAGES (MAX 3)</Text>
           <Text style={styles.subtitleSmall}>High-res recommended</Text>
           <View style={styles.imageGrid}>
-            <TouchableOpacity style={styles.imageSlot}>
-              <Text style={styles.addImageText}>+ Add</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.imageSlot}>
-              <Text style={styles.addImageText}>+ Add</Text>
+            <View style={styles.addPhotoBoxWrapper}>
+              <AddPhotoBox icon={<Feather name="plus" size={28} color="#888" />} />
+            </View>
+            <View style={styles.addPhotoBoxWrapper}>
+              <AddPhotoBox icon={<Feather name="plus" size={28} color="#888" />} />
+            </View>
+            <View style={styles.addPhotoBoxWrapper}>
+              <AddPhotoBox icon={<Feather name="plus" size={28} color="#888" />} />
+            </View>
+            {/* <TouchableOpacity style={styles.imageSlot}>
+              <View style={styles.addImageText}>
+                <FontAwesome5 name="plus" size={10} style={{paddingTop: 4, justifyContent: 'center', alignItems: 'center'}} color="#666" />
+                <Text style={styles.addImageText}>Add</Text>  
+              </View>
+            </TouchableOpacity> */}
+            {/* <TouchableOpacity style={styles.imageSlot}>
+              <View style={styles.addImageText}>
+                <FontAwesome5 name="plus" size={10} style={{paddingTop: 4, justifyContent: 'center', alignItems: 'center'}} color="#666" />
+                <Text style={styles.addImageText}>Add</Text>  
+              </View>
             </TouchableOpacity>
             <View style={styles.imageSlotFilled}>
               <Text style={styles.thumbnailText}>Product Thumbnail</Text>
               <TouchableOpacity style={styles.removeButton}>
                 <Text style={styles.removeText}>×</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
         </View>
 
@@ -153,6 +198,7 @@ const AddProductScreen = ({ navigation }) => {
           <View style={styles.formRowContainer}>
             <Text style={styles.label}>Size Range</Text>
             <TextInput
+              placeholder='S, M, L, XL'
               style={styles.input}
               value={sizeRange}
               onChangeText={setSizeRange}
@@ -163,19 +209,29 @@ const AddProductScreen = ({ navigation }) => {
         <View style={styles.detailsSection}>
           <View style={styles.formRowContainer}>
             <Text style={styles.label}>Original Price</Text>
-            <TextInput
-              style={styles.input}
-              value={originalPrice}
-              onChangeText={setOriginalPrice}
-            />
+            <View style={styles.inputContainer}>
+              <FontAwesome5 name="dollar-sign" size={24} style={styles.currencySymbol} color="black" />
+              <TextInput
+                placeholder='0.00'
+                style={styles.inputWithPrefix}
+                value={originalPrice}
+                onChangeText={setOriginalPrice}
+                keyboardType="numeric"
+              />
+            </View>
           </View>
           <View style={styles.formRowContainer}>
             <Text style={styles.label}>Offer Price</Text>
-            <TextInput
-              style={styles.input}
-              value={offerPrice}
-              onChangeText={setOfferPrice}
-            />
+            <View style={styles.inputContainer}>
+              <FontAwesome5 name="dollar-sign" size={24} style={styles.currencySymbol} color="black" />
+              <TextInput
+                placeholder='0.00'
+                style={styles.inputWithPrefix}
+                value={offerPrice}
+                onChangeText={setOfferPrice}
+                keyboardType="numeric"
+              />
+            </View>
           </View>
         </View>
 
@@ -183,8 +239,7 @@ const AddProductScreen = ({ navigation }) => {
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.cloudIcon}>☁️</Text>
-          )}
+          <FontAwesome5 name="cloud-upload-alt" size={24} color="#fff" />          )}
           <Text style={styles.publishText}>
             {loading ? 'Publishing...' : 'Publish Product'}
           </Text>
@@ -291,14 +346,15 @@ const styles = StyleSheet.create({
   socialIcons: {
     flexDirection: 'row',
     gap: 15,
+    justifyContent: 'center'
   },
   socialIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    // width: 48,
+    // height: 48,
+    // borderRadius: 24,
+    // backgroundColor: '#f5f5f5',
+    // justifyContent: 'center',
+    // alignItems: 'center',
   },
   iconText: {
     fontSize: 20,
@@ -334,6 +390,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+    flexDirection: 'row',
+    // alignItems: 'center',
+    gap: 5,
+    justifyContent: 'center'
   },
   thumbnailText: {
     fontSize: 12,
@@ -377,6 +437,26 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 15,
   },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  currencySymbol: {
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  inputWithPrefix: {
+    flex: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000',
+  },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
@@ -395,6 +475,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   publishText: {
+    paddingLeft: 10,
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
@@ -402,6 +483,10 @@ const styles = StyleSheet.create({
   formRowContainer: {
     flex:1,
     marginRight: 10
+  },
+  addPhotoBoxWrapper : {
+    height: 100,
+    flex: 1
   }
 });
 
