@@ -10,8 +10,9 @@ import {
   ActionSheetIOS,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Feather } from "@expo/vector-icons";
 
-export default function AddPhotoBox({title, icon}) {
+export default function AddPhotoBox({ title, icon }) {
   const [image, setImage] = useState(null);
 
   const requestPermissions = async () => {
@@ -71,14 +72,28 @@ export default function AddPhotoBox({title, icon}) {
     }
   };
 
+  const handleRemove = () => {
+    setImage(null);
+  };
+
   return (
     <TouchableOpacity style={styles.container} onPress={handlePress}>
       {image ? (
-        <Image source={{ uri: image }} style={styles.image} />
+        <>
+          <Image source={{ uri: image }} style={styles.image} />
+
+          {/* Remove Button */}
+          <TouchableOpacity
+            style={styles.removeBtn}
+            onPress={handleRemove}
+          >
+            <Feather name="x" size={16} color="#fff" />
+          </TouchableOpacity>
+        </>
       ) : (
         <View style={styles.placeholder}>
-          {icon} 
-          <Text style={styles.text}>{title || 'Add'}</Text>
+          {icon}
+          <Text style={styles.text}>{title || "Add"}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -87,8 +102,8 @@ export default function AddPhotoBox({title, icon}) {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderWidth: 2,
     borderColor: "#ccc",
     borderStyle: "dashed",
@@ -108,5 +123,13 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  removeBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 6,
+    borderRadius: 20,
   },
 });
