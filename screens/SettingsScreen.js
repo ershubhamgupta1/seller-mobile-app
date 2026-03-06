@@ -30,7 +30,7 @@ const SettingsScreen = ({ navigation }) => {
       ]
     );
   };
-const takePhoto = async () => {
+  const takePhoto = async () => {
     // Ask camera permission
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -46,7 +46,7 @@ const takePhoto = async () => {
     });
 
     if (!result.canceled) {
-      console.log('result.assets[0].uri============', )
+      console.log('result.assets[0].uri============',)
       setImage(result.assets[0].uri);
     }
   };
@@ -67,19 +67,19 @@ const takePhoto = async () => {
             <Text style={styles.statusText}>STATUS: PENDING</Text>
           </View>
         </View>
-          <View style={styles.trustCard}>
-            <View style={{flexDirection: 'row'}}>
-              <Text style={styles.trustScore}>65%</Text>
-              <Text style={styles.trustScoreTitle}>Trust Score</Text>
-            </View>
-            <Text style={styles.trustDescription}>Complete 2 more steps to reach 100% and get your badge.</Text>
+        <View style={styles.trustCard}>
+          <View style={{ flexDirection: 'row' }}>
+            <Text style={styles.trustScore}>65%</Text>
+            <Text style={styles.trustScoreTitle}>Trust Score</Text>
           </View>
+          <Text style={styles.trustDescription}>Complete 2 more steps to reach 100% and get your badge.</Text>
+        </View>
 
         <View style={styles.gstSection}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10}}>
-            <FontAwesome5 style={{flex: 1}} name="file-alt" size={20} color="#555" />
-            <Text style={{...styles.sectionTitle, flex: 10, fontSize: 14}}>GST Number</Text>
-            <FontAwesome5 style={{flex: 1}} name="check-circle" size={20} color="#555" />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10 }}>
+            <FontAwesome5 style={{ flex: 1 }} name="file-alt" size={20} color="#555" />
+            <Text style={{ ...styles.sectionTitle, flex: 10, fontSize: 14 }}>GST Number</Text>
+            <FontAwesome5 style={{ flex: 1 }} name="check-circle" size={20} color="#555" />
           </View>
           <View style={styles.inputContainer}>
             <TextInput
@@ -90,26 +90,26 @@ const takePhoto = async () => {
           </View>
         </View>
         <View style={styles.gstSection}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10}}>
-            <FontAwesome5 style={{flex: 1}} name="store" size={20} color="#555" />
-            <Text style={{...styles.sectionTitle, paddingLeft: 10, flex: 10, fontSize: 14}}>Physical Shop Photo</Text>
-            <Text style={{fontSize: 10}}>Action Required</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 10 }}>
+            <FontAwesome5 style={{ flex: 1 }} name="store" size={20} color="#555" />
+            <Text style={{ ...styles.sectionTitle, paddingLeft: 10, flex: 10, fontSize: 14 }}>Physical Shop Photo</Text>
+            <Text style={{ fontSize: 10 }}>Action Required</Text>
           </View>
           <TouchableOpacity style={styles.imageUploadContainer} onPress={takePhoto}>
             {image ? (
               <Image source={{ uri: image }} style={styles.imageUploadImage} />
             ) : (
-              <AddPhotoBox title={'Upload storefront with signage'} icon={<FontAwesome5 name="camera" size={28} color="#888" />}/>
+              <AddPhotoBox title={'Upload storefront with signage'} icon={<FontAwesome5 name="camera" size={28} color="#888" />} />
             )}
           </TouchableOpacity>
         </View>
         <View style={styles.gstSection}>
-          <View style={{flexDirection: 'row', marginBottom: 10,  width: '100%'}}>
-            <FontAwesome5 name="instagram" size={20} color="#666"/>
-            <Text style={{...styles.sectionTitle, fontSize: 14, paddingLeft: 10}}>Social Media Verification</Text>
+          <View style={{ flexDirection: 'row', marginBottom: 10, width: '100%' }}>
+            <FontAwesome5 name="instagram" size={20} color="#666" />
+            <Text style={{ ...styles.sectionTitle, fontSize: 14, paddingLeft: 10 }}>Social Media Verification</Text>
           </View>
           <TextInput
-            style={{...styles.input, borderColor: '#e0e0e0', borderWidth: 1, width: '100%', borderRadius: 6}}
+            style={{ ...styles.input, borderColor: '#e0e0e0', borderWidth: 1, width: '100%', borderRadius: 6 }}
             placeholder="Instagram Profile Link"
             placeholderTextColor="#999"
           />
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   trustMeterSection: {
     marginBottom: 15,
-    flexDirection:'row'
+    flexDirection: 'row'
   },
   sectionHeader: {
     flex: 2,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     marginBottom: 15,
-    flex:1
+    flex: 1
   },
   statusText: {
     fontSize: 10,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     marginBottom: 15,
-    flex:1
+    flex: 1
   },
   trustScore: {
     fontSize: 40,
@@ -201,11 +201,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   trustScoreTitle: {
-    fontSize: 14, 
-    paddingTop:20, 
-    textAlignVertical: 'center', 
-    paddingLeft: 10, 
-    color:'#666'
+    fontSize: 14,
+    paddingTop: 20,
+    textAlignVertical: 'center',
+    paddingLeft: 10,
+    color: '#666'
   },
   trustDescription: {
     fontSize: 10,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   photoSection: {
     marginBottom: 30,
-        borderRadius: 16,
+    borderRadius: 16,
     padding: 15,
     justifyContent: 'center',
     alignItems: 'center',
