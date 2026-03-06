@@ -28,7 +28,7 @@ const InventoryScreen = ({ navigation }) => {
             setLoading(true);
 
             const response = await inventory?.getPosts();
-
+            console.log('posts========', JSON.stringify(response))
             let postsData = response?.posts || [];
 
             if (postsData.length === 0) {

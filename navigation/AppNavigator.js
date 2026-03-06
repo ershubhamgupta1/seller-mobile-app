@@ -109,7 +109,10 @@ const MainTabs = () => {
         component={ShopProfileScreen}
         options={{ 
           headerShown: false,
-          tabBarLabel: 'Shop Profile'
+          tabBarLabel: 'Shop Profile',
+          tabBarIcon: ({ focused, color, size }) => (
+            <FontAwesome5 name="store" size={20} color={color} />
+          )
         }}
       />
     </Tab.Navigator>

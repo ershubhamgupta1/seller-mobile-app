@@ -9,6 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { SvgXml } from 'react-native-svg';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const ShopProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -374,592 +375,598 @@ const ShopProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <Header 
-        title="Shop Profile"
-        onNotificationPress={() => console.log('Notification pressed')}
-        onProfilePress={() => navigation.navigate('Settings')}
-      />
-      <View style={styles.content}>
-        {/* Shop Logo Section */}
-        <View style={styles.logoSection}>
-          <View style={styles.logoContainer}>
-            {formData.logo ? (
-              <Image source={{ uri: formData.logo }} style={styles.logoImage} />
-            ) : (
-              <View style={styles.logoPlaceholder}>
-                <FontAwesome5 name="store" size={40} color="#ccc" />
-              </View>
-            )}
-            {isEditing && (
-              <TouchableOpacity style={styles.cameraButton} onPress={handleImagePick}>
-                <FontAwesome name="camera" size={16} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-          <Text style={styles.shopName}>{formData.name || 'Shop Name'}</Text>
-        </View>
-
-        {/* Profile Information */}
-        <View style={styles.profileSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Text>Unified shop identity</Text>
-              <Text style={styles.sectionTitle}>Shop Profile</Text>
-              <Text style={styles.sectionDescription}>This powers your single QR code and your bio-link storefront</Text>
-            </View>
-            {!isEditing ? (
-              <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-                <FontAwesome5 name="edit" size={14} color="#000" />
-                {/* <Text style={styles.editButtonText}>Edit</Text> */}
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.infoContainer}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="store" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Shop Name</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.name}
-                    onChangeText={(text) => setFormData({ ...formData, name: text })}
-                    placeholder="Enter shop name"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.name || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="envelope" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Email</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.email}
-                    onChangeText={(text) => setFormData({ ...formData, email: text })}
-                    placeholder="Enter email"
-                    keyboardType="email-address"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.email || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="phone" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.phone}
-                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                    placeholder="Enter phone number"
-                    keyboardType="phone-pad"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.phone || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="whatsapp" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>WhatsApp</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.whatsapp}
-                    onChangeText={(text) => setFormData({ ...formData, whatsapp: text })}
-                    placeholder="Enter WhatsApp number"
-                    keyboardType="phone-pad"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.whatsapp || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Address</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.address}
-                    onChangeText={(text) => setFormData({ ...formData, address: text })}
-                    placeholder="Enter address"
-                    multiline
-                    numberOfLines={3}
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.address || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="city" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>City</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.city}
-                    onChangeText={(text) => setFormData({ ...formData, city: text })}
-                    placeholder="Enter city"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.city || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="tag" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Category</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.category}
-                    onChangeText={(text) => setFormData({ ...formData, category: text })}
-                    placeholder="Enter category"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.category || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="info-circle" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Description</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.description}
-                    onChangeText={(text) => setFormData({ ...formData, description: text })}
-                    placeholder="Enter shop description"
-                    multiline
-                    numberOfLines={4}
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.description || 'No description provided'}</Text>
-                )}
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="globe" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Website</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.website}
-                    onChangeText={(text) => setFormData({ ...formData, website: text })}
-                    placeholder="https://yourwebsite.com"
-                    keyboardType="url"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.website || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-            </View>
-            <View style={styles.infoRow}>
-              <Text>Storefront story</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="calendar" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Founded Year</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.foundedYear}
-                    onChangeText={(text) => setFormData({ ...formData, foundedYear: text })}
-                    placeholder="e.g., 2020"
-                    keyboardType="numeric"
-                    maxLength={4}
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.foundedYear || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="chart-line" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Lifetime Sales</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.lifetimeSales}
-                    onChangeText={(text) => setFormData({ ...formData, lifetimeSales: text })}
-                    placeholder="e.g., ₹50,000"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.lifetimeSales || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="tag" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Tag Line</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.tagLine}
-                    onChangeText={(text) => setFormData({ ...formData, tagLine: text })}
-                    placeholder="Your shop's tag line"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.tagLine || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="star" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Known For</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.knownFor}
-                    onChangeText={(text) => setFormData({ ...formData, knownFor: text })}
-                    placeholder="What your shop is known for"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.knownFor || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="book-open" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Your Story</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.yourStory}
-                    onChangeText={(text) => setFormData({ ...formData, yourStory: text })}
-                    placeholder="Tell your shop's story"
-                    multiline
-                    numberOfLines={4}
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.yourStory || 'No story provided'}</Text>
-                )}
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Payout Settings Section */}
-        <View style={styles.payoutSettingsSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionTitle}>Payout settings</Text>
-              <Text style={styles.sectionDescription}>Manage your bank details and payout preferences</Text>
-            </View>
-            <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-              <FontAwesome5 name="edit" size={14} color="#000" />
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.infoContainer}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="bank" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>IFSC Code</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.bankAccountName || ''}
-                    onChangeText={(text) => setFormData({ ...formData, bankAccountName: text })}
-                    placeholder="Enter IFSC Code"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.bankAccountName || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="credit-card" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Account Number</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.accountNumber || ''}
-                    onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
-                    placeholder="Enter account number"
-                    keyboardType="numeric"
-                    secureTextEntry
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.accountNumber ? `****${formData.accountNumber.slice(-4)}` : 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="university" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>UPI ID</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.upiId || ''}
-                    onChangeText={(text) => setFormData({ ...formData, upiId: text })}
-                    placeholder="Enter upi id"
-                    autoCapitalize="characters"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.upiId || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            {/* <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="user" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Account Holder Name</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.accountHolderName || ''}
-                    onChangeText={(text) => setFormData({ ...formData, accountHolderName: text })}
-                    placeholder="Enter account holder name"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.accountHolderName || 'Not specified'}</Text>
-                )}
-              </View>
-            </View>
-
-            {/* <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="clock" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Payout Frequency</Text>
-                {isEditing ? (
-                  <View style={styles.pickerContainer}>
-                    <Text style={styles.pickerLabel}>Select frequency:</Text>
-                    <TouchableOpacity style={styles.pickerButton}>
-                      <Text style={styles.pickerText}>{formData.payoutFrequency || 'Weekly'}</Text>
-                      <FontAwesome5 name="chevron-down" size={12} color="#666" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <Text style={styles.infoValue}>{formData.payoutFrequency || 'Weekly'}</Text>
-                )}
-              </View>
-            </View>
- */}
-            {/* <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <FontAwesome5 name="money-bill-wave" size={16} color="#666" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Minimum Payout Amount</Text>
-                {isEditing ? (
-                  <TextInput
-                    style={styles.input}
-                    value={formData.minPayoutAmount || ''}
-                    onChangeText={(text) => setFormData({ ...formData, minPayoutAmount: text })}
-                    placeholder="Enter minimum amount"
-                    keyboardType="numeric"
-                  />
-                ) : (
-                  <Text style={styles.infoValue}>{formData.minPayoutAmount ? `₹${formData.minPayoutAmount}` : 'Not specified'}</Text>
-                )}
-              </View>
-            </View> */}
-          </View>
-        </View>
-
-        {/* Bio Link Section */}
-        <View style={styles.bioLinkSection}>
-          <View style={styles.bioLinkCard}>
-            <View style={styles.bioLinkHeader}>
-              <View style={styles.bioLinkContent}>
-                <Text style={styles.bioLinkTitle}>Bio-Link</Text>
-                <Text style={styles.bioLinkUrl}>{shopData?.bio_link || 'e-kom.io/yourshop'}</Text>
-              </View>
-              <View style={styles.bioLinkActions}>
-                <TouchableOpacity style={styles.copyBioButton} onPress={() => {
-                  Clipboard.setStringAsync(shopData?.bio_link || 'e-kom.io/yourshop');
-                  Alert.alert('Copied!', 'Bio link copied to clipboard');
-                }}>
-                  <FontAwesome5 name="copy" size={14} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.openBioButton} onPress={() => {
-                  const link = shopData?.bio_link || 'https://e-kom.io/yourshop';
-                  Alert.alert(
-                    'Open Link',
-                    'Do you want to open this link in your browser?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Open', 
-                        onPress: () => {
-                          Linking.openURL(link).catch(err => {
-                            console.error('Failed to open URL:', err);
-                            Alert.alert('Error', 'Unable to open the link');
-                          });
-                        }
-                      }
-                    ]
-                  );
-                }}>
-                  <FontAwesome5 name="external-link-alt" size={14} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* QR Code Section */}
-        <View style={styles.qrCodeSection}>
-          {/* <Text style={styles.sectionTitle}>QR Code</Text> */}
-          <View style={styles.qrCodeCard}>
-            <View style={styles.qrCodeHeader}>
-              <View style={styles.qrCodeIcon}>
-                <FontAwesome5 name="qrcode" size={20} color="#000" />
-              </View>
-              <View style={styles.qrCodeContent}>
-                <Text style={styles.qrCodeTitle}>Shop QR Code</Text>
-                <Text style={styles.qrCodeSubtitle}>One code for all your products</Text>
-              </View>
-            </View>
-            <View style={styles.qrCodeImageContainer}>
-              {qrImageUrl ? (
-                <SvgXml
-                  xml={qrImageUrl}
-                  width={150}
-                  height={150}
-                  style={styles.qrCodeImage}
-                />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <Header 
+          title="Shop Profile"
+          onNotificationPress={() => console.log('Notification pressed')}
+          onProfilePress={() => navigation.navigate('Settings')}
+        />
+        <View style={styles.content}>
+          {/* Shop Logo Section */}
+          <View style={styles.logoSection}>
+            <View style={styles.logoContainer}>
+              {formData.logo ? (
+                <Image source={{ uri: formData.logo }} style={styles.logoImage} />
               ) : (
-                <View style={styles.qrCodePlaceholder}>
-                  <FontAwesome5 name="qrcode" size={60} color="#ccc" />
-                  <Text style={styles.qrCodePlaceholderText}>Loading QR Code...</Text>
+                <View style={styles.logoPlaceholder}>
+                  <FontAwesome5 name="store" size={40} color="#ccc" />
+                </View>
+              )}
+              {isEditing && (
+                <TouchableOpacity style={styles.cameraButton} onPress={handleImagePick}>
+                  <FontAwesome name="camera" size={16} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.shopName}>{formData.name || 'Shop Name'}</Text>
+          </View>
+
+          {/* Profile Information */}
+          <View style={styles.profileSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Text>Unified shop identity</Text>
+                <Text style={styles.sectionTitle}>Shop Profile</Text>
+                <Text style={styles.sectionDescription}>This powers your single QR code and your bio-link storefront</Text>
+              </View>
+              {!isEditing ? (
+                <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
+                  <FontAwesome5 name="edit" size={14} color="#000" />
+                  {/* <Text style={styles.editButtonText}>Edit</Text> */}
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
-            <View style={styles.qrCodeActions}>
-              <TouchableOpacity style={styles.qrActionButton} onPress={() => downloadQR(qrImageUrl)}>
-                <FontAwesome5 name="download" size={14} color="#fff" />
-                <Text style={styles.qrActionText}>Download</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.qrActionButton} onPress={() => shareQR(qrImageUrl)}>
-                <FontAwesome5 name="whatsapp" size={14} color="#fff" />
-                <Text style={styles.qrActionText}>Share</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
 
-        {/* Payout History Section */}
-        <View style={styles.payoutSection}>
-          <View style={styles.payoutHeader}>
-            <Text style={styles.sectionTitle}>Payout History</Text>
-            <View style={styles.payoutSummary}>
-              <Text style={styles.payoutSummaryText}>
-                Total: ₹{payoutData.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)}
-              </Text>
+            <View style={styles.infoContainer}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="store" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Shop Name</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.name}
+                      onChangeText={(text) => setFormData({ ...formData, name: text })}
+                      placeholder="Enter shop name"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.name || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="envelope" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Email</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.email}
+                      onChangeText={(text) => setFormData({ ...formData, email: text })}
+                      placeholder="Enter email"
+                      keyboardType="email-address"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.email || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="phone" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Phone</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.phone}
+                      onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                      placeholder="Enter phone number"
+                      keyboardType="phone-pad"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.phone || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="whatsapp" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>WhatsApp</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.whatsapp}
+                      onChangeText={(text) => setFormData({ ...formData, whatsapp: text })}
+                      placeholder="Enter WhatsApp number"
+                      keyboardType="phone-pad"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.whatsapp || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Address</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.address}
+                      onChangeText={(text) => setFormData({ ...formData, address: text })}
+                      placeholder="Enter address"
+                      multiline
+                      numberOfLines={3}
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.address || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="city" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>City</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.city}
+                      onChangeText={(text) => setFormData({ ...formData, city: text })}
+                      placeholder="Enter city"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.city || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="tag" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Category</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.category}
+                      onChangeText={(text) => setFormData({ ...formData, category: text })}
+                      placeholder="Enter category"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.category || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="info-circle" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Description</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.description}
+                      onChangeText={(text) => setFormData({ ...formData, description: text })}
+                      placeholder="Enter shop description"
+                      multiline
+                      numberOfLines={4}
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.description || 'No description provided'}</Text>
+                  )}
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="globe" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Website</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.website}
+                      onChangeText={(text) => setFormData({ ...formData, website: text })}
+                      placeholder="https://yourwebsite.com"
+                      keyboardType="url"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.website || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+              </View>
+              <View style={styles.infoRow}>
+                <Text>Storefront story</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="calendar" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Founded Year</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.foundedYear}
+                      onChangeText={(text) => setFormData({ ...formData, foundedYear: text })}
+                      placeholder="e.g., 2020"
+                      keyboardType="numeric"
+                      maxLength={4}
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.foundedYear || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="chart-line" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Lifetime Sales</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.lifetimeSales}
+                      onChangeText={(text) => setFormData({ ...formData, lifetimeSales: text })}
+                      placeholder="e.g., ₹50,000"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.lifetimeSales || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="tag" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Tag Line</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.tagLine}
+                      onChangeText={(text) => setFormData({ ...formData, tagLine: text })}
+                      placeholder="Your shop's tag line"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.tagLine || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="star" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Known For</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.knownFor}
+                      onChangeText={(text) => setFormData({ ...formData, knownFor: text })}
+                      placeholder="What your shop is known for"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.knownFor || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="book-open" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Your Story</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.yourStory}
+                      onChangeText={(text) => setFormData({ ...formData, yourStory: text })}
+                      placeholder="Tell your shop's story"
+                      multiline
+                      numberOfLines={4}
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.yourStory || 'No story provided'}</Text>
+                  )}
+                </View>
+              </View>
             </View>
           </View>
-          
-          {payoutData.length === 0 ? (
-            <View style={styles.emptyPayoutContainer}>
-              <FontAwesome5 name="money-bill-wave" size={40} color="#ccc" />
-              <Text style={styles.emptyText}>No payout history found</Text>
-              <Text style={styles.emptySubText}>Your payout records will appear here</Text>
+
+          {/* Payout Settings Section */}
+          <View style={styles.payoutSettingsSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionTitle}>Payout settings</Text>
+                <Text style={styles.sectionDescription}>Manage your bank details and payout preferences</Text>
+              </View>
+              <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
+                <FontAwesome5 name="edit" size={14} color="#000" />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            payoutData.slice(0, 3).map(renderPayoutItem) // Show only first 3 payouts
-          )}
-          
-          {payoutData.length > 3 && (
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View All Payouts</Text>
-              <FontAwesome5 name="chevron-right" size={12} color="#000" />
-            </TouchableOpacity>
-          )}
+            <View style={styles.infoContainer}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="bank" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>IFSC Code</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.bankAccountName || ''}
+                      onChangeText={(text) => setFormData({ ...formData, bankAccountName: text })}
+                      placeholder="Enter IFSC Code"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.bankAccountName || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="credit-card" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Account Number</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.accountNumber || ''}
+                      onChangeText={(text) => setFormData({ ...formData, accountNumber: text })}
+                      placeholder="Enter account number"
+                      keyboardType="numeric"
+                      secureTextEntry
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.accountNumber ? `****${formData.accountNumber.slice(-4)}` : 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="university" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>UPI ID</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.upiId || ''}
+                      onChangeText={(text) => setFormData({ ...formData, upiId: text })}
+                      placeholder="Enter upi id"
+                      autoCapitalize="characters"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.upiId || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              {/* <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="user" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Account Holder Name</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.accountHolderName || ''}
+                      onChangeText={(text) => setFormData({ ...formData, accountHolderName: text })}
+                      placeholder="Enter account holder name"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.accountHolderName || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              {/* <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="clock" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Payout Frequency</Text>
+                  {isEditing ? (
+                    <View style={styles.pickerContainer}>
+                      <Text style={styles.pickerLabel}>Select frequency:</Text>
+                      <TouchableOpacity style={styles.pickerButton}>
+                        <Text style={styles.pickerText}>{formData.payoutFrequency || 'Weekly'}</Text>
+                        <FontAwesome5 name="chevron-down" size={12} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.payoutFrequency || 'Weekly'}</Text>
+                  )}
+                </View>
+              </View>
+  */}
+              {/* <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="money-bill-wave" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Minimum Payout Amount</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.input}
+                      value={formData.minPayoutAmount || ''}
+                      onChangeText={(text) => setFormData({ ...formData, minPayoutAmount: text })}
+                      placeholder="Enter minimum amount"
+                      keyboardType="numeric"
+                    />
+                  ) : (
+                    <Text style={styles.infoValue}>{formData.minPayoutAmount ? `₹${formData.minPayoutAmount}` : 'Not specified'}</Text>
+                  )}
+                </View>
+              </View> */}
+            </View>
           </View>
-      </View>
-    </ScrollView>
+
+          {/* Bio Link Section */}
+          <View style={styles.bioLinkSection}>
+            <View style={styles.bioLinkCard}>
+              <View style={styles.bioLinkHeader}>
+                <View style={styles.bioLinkContent}>
+                  <Text style={styles.bioLinkTitle}>Bio-Link</Text>
+                  <Text style={styles.bioLinkUrl}>{shopData?.bio_link || 'e-kom.io/yourshop'}</Text>
+                </View>
+                <View style={styles.bioLinkActions}>
+                  <TouchableOpacity style={styles.copyBioButton} onPress={() => {
+                    Clipboard.setStringAsync(shopData?.bio_link || 'e-kom.io/yourshop');
+                    Alert.alert('Copied!', 'Bio link copied to clipboard');
+                  }}>
+                    <FontAwesome5 name="copy" size={14} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.openBioButton} onPress={() => {
+                    const link = shopData?.bio_link || 'https://e-kom.io/yourshop';
+                    Alert.alert(
+                      'Open Link',
+                      'Do you want to open this link in your browser?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Open', 
+                          onPress: () => {
+                            Linking.openURL(link).catch(err => {
+                              console.error('Failed to open URL:', err);
+                              Alert.alert('Error', 'Unable to open the link');
+                            });
+                          }
+                        }
+                      ]
+                    );
+                  }}>
+                    <FontAwesome5 name="external-link-alt" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* QR Code Section */}
+          <View style={styles.qrCodeSection}>
+            {/* <Text style={styles.sectionTitle}>QR Code</Text> */}
+            <View style={styles.qrCodeCard}>
+              <View style={styles.qrCodeHeader}>
+                <View style={styles.qrCodeIcon}>
+                  <FontAwesome5 name="qrcode" size={20} color="#000" />
+                </View>
+                <View style={styles.qrCodeContent}>
+                  <Text style={styles.qrCodeTitle}>Shop QR Code</Text>
+                  <Text style={styles.qrCodeSubtitle}>One code for all your products</Text>
+                </View>
+              </View>
+              <View style={styles.qrCodeImageContainer}>
+                {qrImageUrl ? (
+                  <SvgXml
+                    xml={qrImageUrl}
+                    width={150}
+                    height={150}
+                    style={styles.qrCodeImage}
+                  />
+                ) : (
+                  <View style={styles.qrCodePlaceholder}>
+                    <FontAwesome5 name="qrcode" size={60} color="#ccc" />
+                    <Text style={styles.qrCodePlaceholderText}>Loading QR Code...</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.qrCodeActions}>
+                <TouchableOpacity style={styles.qrActionButton} onPress={() => downloadQR(qrImageUrl)}>
+                  <FontAwesome5 name="download" size={14} color="#fff" />
+                  <Text style={styles.qrActionText}>Download</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.qrActionButton} onPress={() => shareQR(qrImageUrl)}>
+                  <FontAwesome5 name="whatsapp" size={14} color="#fff" />
+                  <Text style={styles.qrActionText}>Share</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Payout History Section */}
+          <View style={styles.payoutSection}>
+            <View style={styles.payoutHeader}>
+              <Text style={styles.sectionTitle}>Payout History</Text>
+              <View style={styles.payoutSummary}>
+                <Text style={styles.payoutSummaryText}>
+                  Total: ₹{payoutData.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)}
+                </Text>
+              </View>
+            </View>
+            
+            {payoutData.length === 0 ? (
+              <View style={styles.emptyPayoutContainer}>
+                <FontAwesome5 name="money-bill-wave" size={40} color="#ccc" />
+                <Text style={styles.emptyText}>No payout history found</Text>
+                <Text style={styles.emptySubText}>Your payout records will appear here</Text>
+              </View>
+            ) : (
+              payoutData.slice(0, 3).map(renderPayoutItem) // Show only first 3 payouts
+            )}
+            
+            {payoutData.length > 3 && (
+              <TouchableOpacity style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>View All Payouts</Text>
+                <FontAwesome5 name="chevron-right" size={12} color="#000" />
+              </TouchableOpacity>
+            )}
+            </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
