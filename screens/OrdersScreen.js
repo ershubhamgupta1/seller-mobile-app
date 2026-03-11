@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { orders } from '../services/api';
 import Header from '../components/Header';
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,7 +18,10 @@ const OrdersScreen = ({ navigation }) => {
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
+      // Don't show loading indicator if just refreshing
+      if (!refreshing) {
+        setLoading(true);
+      }
       console.log('ordwer service---------', orders);
       const response = await orders?.getOrders();
       let ordersDataRes = response?.orders || [];
@@ -35,13 +38,6 @@ const OrdersScreen = ({ navigation }) => {
         {
           id: 1,
           order_number: 'ORD-2025-882',
-          customer_name: 'Sarah Jenkins',
-          product_name: 'Vintage Oversized Tee',
-          size: 'M',
-          stock_left: 14,
-          total_amount: '2400',
-          status: 'CREATED',
-          product_image: true
         }
       ]);
     } finally {
@@ -81,7 +77,12 @@ const getDateFromTimestamp = (timestamp)=> {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Header 
           title="Orders"
           onNotificationPress={() => console.log('Notification pressed')}

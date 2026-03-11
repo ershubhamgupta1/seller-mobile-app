@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -6,26 +6,37 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Image
+    Image,
+    RefreshControl
 } from "react-native";
 import { inventory } from "../services/api";
 import Header from "../components/Header";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 
 const InventoryScreen = ({ navigation }) => {
 
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchPosts();
     }, []);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchPosts();
+        }, [])
+    );
+
     const fetchPosts = async () => {
         try {
-
-            setLoading(true);
+            // Don't show loading indicator if just refreshing
+            if (!refreshing) {
+                setLoading(true);
+            }
 
             const response = await inventory?.getPosts();
             console.log('posts========', JSON.stringify(response))
@@ -36,8 +47,14 @@ const InventoryScreen = ({ navigation }) => {
             console.error("Error fetching posts", error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchPosts();
+    }, []);
 
     if (loading) {
         return (
@@ -51,7 +68,12 @@ const InventoryScreen = ({ navigation }) => {
 
         <SafeAreaView style={styles.safeArea}>
 
-            <ScrollView style={styles.container}>
+            <ScrollView 
+                style={styles.container}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
 
                 <Header
                     title="Inventory"

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Image } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as MediaLibrary from "expo-media-library";
@@ -14,6 +14,7 @@ const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const uniqueLink = 'e-kom.io/yourshop';
 
   useEffect(() => {
@@ -22,7 +23,10 @@ const HomeScreen = ({ navigation }) => {
 
   const fetchShopData = async () => {
     try {
-      setLoading(true);
+      // Don't show loading indicator if just refreshing
+      if (!refreshing) {
+        setLoading(true);
+      }
       const shopResponse = await shop.getMyShop();
       console.log('shopResponse========', shopResponse)
       let qrCode = await shop.getQRCode();
@@ -35,8 +39,14 @@ const HomeScreen = ({ navigation }) => {
       console.error('Error fetching shop data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchShopData();
+  }, []);
 
   if (loading) {
     return (
@@ -98,7 +108,12 @@ const HomeScreen = ({ navigation }) => {
     setCopied(true);
   };
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <Header 
         title={shopData?.name || 'E-KOM'}
         onNotificationPress={() => console.log('Notification pressed')}

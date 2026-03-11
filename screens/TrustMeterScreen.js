@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect } from "react";
@@ -28,6 +28,7 @@ export default function VerificationScreen() {
   const [totalScore, setTotalScore] = useState(0);
   const [progress, setProgress] = useState(0);
   const [shopStatus, setShopStatus] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(()=>{
     fetchVerificationData();
   }, []);
@@ -40,7 +41,7 @@ export default function VerificationScreen() {
       // Extract data from API response
       const trustMeterData = response?.trust_meter || {};
       const submissionData = response?.submission || {};
-      const apiShopStatus = submissionData?.shop_status || null;
+      const apiShopStatus = response?.shop_status || null;
       
       // Update verification items with real data
       const updatedVerificationItems = trustMeterData.checks?.map(check => ({
@@ -64,8 +65,15 @@ export default function VerificationScreen() {
       console.log('Submission data:', submissionData);
     } catch (error) {
       console.error('Error fetching verification status:', error);
+    } finally {
+      setRefreshing(false);
     }
   }
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchVerificationData();
+  }, []);
 
   const StatusBadge = ({ done }) => (
     <View
@@ -97,7 +105,12 @@ export default function VerificationScreen() {
         <Text style={styles.headerTitle}>Trust Meter</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView style={styles.container}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.smallTitle}>Trust & Verification</Text>
