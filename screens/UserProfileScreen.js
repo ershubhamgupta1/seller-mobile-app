@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,14 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
   Alert
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
+import { businessAuth } from "../services/api";
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -20,11 +22,109 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState("smridh@tandev.us");
   const [name, setName] = useState("Arvind Sharma");
   const [phone, setPhone] = useState("9876543210");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const handleSave = () => {
-    console.log("Saved profile", { email, name, phone });
+
+  const fetchMe = useCallback(async () => {
+    try {
+      setLoadingProfile(true);
+      const res = await businessAuth.getMe();
+      const me = res?.user || res?.me || res;
+      if (me) {
+        setEmail(me?.email || "");
+        setName(me?.full_name || me?.name || "");
+        setPhone(me?.phone || "");
+      }
+    } catch (e) {
+      console.error('Error fetching profile:', e);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMe();
+  }, [fetchMe]);
+
+  const handleSave = async () => {
+    if (savingProfile) return;
+
+    const trimmedName = (name || "").trim();
+    const trimmedPhone = (phone || "").trim();
+
+    if (!trimmedName) {
+      Alert.alert('Validation', 'Full name is required');
+      return;
+    }
+
+    if (!trimmedPhone) {
+      Alert.alert('Validation', 'Phone is required');
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+      await businessAuth.updateMe({
+        full_name: trimmedName,
+        phone: trimmedPhone,
+      });
+      Alert.alert('Success', 'Profile updated successfully');
+      fetchMe();
+    } catch (e) {
+      console.error('Error saving profile:', e);
+      Alert.alert('Error', 'Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (changingPassword) return;
+
+    const current = (currentPassword || "").trim();
+    const next = (newPassword || "").trim();
+    const confirm = (confirmPassword || "").trim();
+
+    if (!current) {
+      Alert.alert('Validation', 'Current password is required');
+      return;
+    }
+
+    if (!next) {
+      Alert.alert('Validation', 'New password is required');
+      return;
+    }
+
+    if (next.length < 8) {
+      Alert.alert('Validation', 'New password must be at least 8 characters');
+      return;
+    }
+
+    if (next !== confirm) {
+      Alert.alert('Validation', 'New password and confirm password do not match');
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      await businessAuth.changePassword({
+        current_password: current,
+        new_password: next,
+      });
+      Alert.alert('Success', 'Password updated successfully');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      console.error('Error changing password:', e);
+      Alert.alert('Error', 'Failed to update password');
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const handleLogout = () => {
@@ -81,7 +181,7 @@ export default function ProfileScreen() {
           <TextInput
             style={styles.input}
             value={email}
-            readOnly
+            editable={false}
             onChangeText={setEmail}
           />
 
@@ -108,8 +208,16 @@ export default function ProfileScreen() {
 
           {/* Save Button */}
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveText}>Save profile</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, (savingProfile || loadingProfile) && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={savingProfile || loadingProfile}
+          >
+            {savingProfile ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.saveText}>Save profile</Text>
+            )}
           </TouchableOpacity>
 
         </View>
@@ -159,8 +267,16 @@ export default function ProfileScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Update password</Text>
+          <TouchableOpacity
+            style={[styles.secondaryButton, changingPassword && styles.secondaryButtonDisabled]}
+            onPress={handleChangePassword}
+            disabled={changingPassword}
+          >
+            {changingPassword ? (
+              <ActivityIndicator size="small" color="#111827" />
+            ) : (
+              <Text style={styles.secondaryButtonText}>Update password</Text>
+            )}
           </TouchableOpacity>
 
         </View>
@@ -282,7 +398,11 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827"
+    color: "#fff"
+  },
+
+  saveButtonDisabled: {
+    backgroundColor: "#bdc3c7",
   },
   secondaryButton: {
     marginTop: 20,

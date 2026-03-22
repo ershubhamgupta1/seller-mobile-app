@@ -169,6 +169,18 @@ export const businessAuth = {
   },
 
   getMe: () => apiRequest('/api/business/auth/me'),
+
+  updateMe: (profileData) =>
+    apiRequest('/api/business/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    }),
+
+  changePassword: ({ current_password, new_password }) =>
+    apiRequest('/api/business/auth/me/password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 };
 
 // Shop Management

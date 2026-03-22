@@ -50,6 +50,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "de1f2fa0-b261-4013-84f4-22cd5eb78f80"
+      }
+    },
+    "owner": "ershubhamgupta1"
   }
 }
