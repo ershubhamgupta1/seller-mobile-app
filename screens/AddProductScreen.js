@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -29,9 +29,38 @@ const COLORS = {
 
 const FORM_INPUT_FONT_SIZE = 12;
 
+const isLocalFileUri = (value = "") => /^(file|content):\/\//i.test(value);
+
+const inferPlatformFromUrl = (value = "") => {
+  const normalizedValue = value.toLowerCase();
+
+  if (normalizedValue.includes("instagram")) return "instagram";
+  if (normalizedValue.includes("facebook")) return "facebook";
+  if (normalizedValue.includes("pinterest")) return "pinterest";
+
+  return "instagram";
+};
+
+const getMimeTypeFromUri = (value = "") => {
+  const sanitizedValue = value.split("?")[0];
+  const ext = (sanitizedValue.split(".").pop() || "jpg").toLowerCase();
+
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  if (ext === "heic") return "image/heic";
+
+  return "image/jpeg";
+};
+
+const ensureTrailingImageInput = (values = []) => {
+  const nonEmptyValues = (values || []).filter((value) => (value || "").trim() !== "");
+  return nonEmptyValues.length > 0 ? [...nonEmptyValues, ""] : [""];
+};
+
 const getAbsoluteImageUrl = (value) => {
   if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
+  if (/^https?:\/\//i.test(value) || isLocalFileUri(value) || /^data:/i.test(value)) return value;
   return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
 };
 
@@ -101,21 +130,70 @@ const PostMetricsCard = ({ shares = 0, images = 0, onOpenLink }) => {
 
 export default function AddPostScreen({ route }) {
   const navigation = useNavigation();
-  const { post } = route.params || {};
+  const { post, sharedDraft } = route.params || {};
   const isEditMode = !!post;
-  const [url, setUrl] = useState(post?.social_url || "");
-  const [title, setTitle] = useState(post?.title || "");
+  const initialSharedImageUrls = !post && sharedDraft?.imageUrls?.length > 0
+    ? ensureTrailingImageInput(sharedDraft.imageUrls)
+    : [""];
+  const [url, setUrl] = useState(post?.social_url || sharedDraft?.socialUrl || "");
+  const [title, setTitle] = useState(post?.title || sharedDraft?.title || "");
   const [material, setMaterial] = useState(post?.material || "");
   const [price, setPrice] = useState(post?.price?.toString() || "");
   const [delivery, setDelivery] = useState(post?.attributes?.delivery_fee_amount?.toString() || "");
   const [color, setColor] = useState(post?.attributes?.color || "");
   const [size, setSize] = useState(post?.attributes?.size || "");
-  const [caption, setCaption] = useState(post?.caption || "");
-  const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => getAbsoluteImageUrl(img.url)) : [""]);
+  const [caption, setCaption] = useState(post?.caption || sharedDraft?.caption || "");
+  const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => getAbsoluteImageUrl(img.url)) : initialSharedImageUrls);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || "instagram");
+  const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || sharedDraft?.platform || inferPlatformFromUrl(sharedDraft?.socialUrl || ""));
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [loading, setLoading] = useState(false);
+  const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
+
+  useEffect(() => {
+    if (isEditMode || !sharedDraft?.receivedAt || appliedSharedDraftRef.current === sharedDraft.receivedAt) {
+      return;
+    }
+
+    appliedSharedDraftRef.current = sharedDraft.receivedAt;
+
+    if (sharedDraft.socialUrl) {
+      setUrl(sharedDraft.socialUrl);
+      setSelectedPlatform(sharedDraft.platform || inferPlatformFromUrl(sharedDraft.socialUrl));
+    } else if (sharedDraft.platform) {
+      setSelectedPlatform(sharedDraft.platform);
+    }
+
+    if (sharedDraft.title) {
+      setTitle(sharedDraft.title);
+    }
+
+    if (sharedDraft.caption) {
+      setCaption(sharedDraft.caption);
+    }
+
+    if (sharedDraft.imageUrls?.length > 0) {
+      setImageUrls(ensureTrailingImageInput(sharedDraft.imageUrls));
+    }
+  }, [isEditMode, sharedDraft]);
+
+  const uploadImageFromUri = async (uri, fileName) => {
+    const resolvedFileName = fileName || uri.split("/").pop()?.split("?")[0] || `image-${Date.now()}.jpg`;
+    const fileAsset = {
+      uri,
+      name: resolvedFileName,
+      type: getMimeTypeFromUri(resolvedFileName),
+    };
+
+    const res = await uploads.uploadInventoryImage(fileAsset);
+    const publicUrl = res?.url ? res.url : null;
+
+    if (!publicUrl) {
+      throw new Error("Upload succeeded but no image URL was returned");
+    }
+
+    return getAbsoluteImageUrl(publicUrl);
+  };
 
   const pickAndUploadImages = async () => {
     try {
@@ -142,22 +220,11 @@ export default function AddPostScreen({ route }) {
         const uri = asset.uri;
         if (!uri) continue;
 
-        const fileName = asset.fileName || uri.split('/').pop() || `image-${Date.now()}.jpg`;
-        const ext = (fileName.split('.').pop() || 'jpg').toLowerCase();
-        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-
-        const fileAsset = {
+        const uploadedUrl = await uploadImageFromUri(
           uri,
-          name: fileName,
-          type: mimeType,
-        };
-
-        const res = await uploads.uploadInventoryImage(fileAsset);
-        const publicUrl = res?.url ? res.url : null;
-        if (!publicUrl) {
-          throw new Error('Upload succeeded but no image URL was returned');
-        }
-        uploadedUrls.push(getAbsoluteImageUrl(publicUrl));
+          asset.fileName || uri.split('/').pop() || `image-${Date.now()}.jpg`
+        );
+        uploadedUrls.push(uploadedUrl);
       }
 
       if (uploadedUrls.length === 0) {
@@ -195,10 +262,23 @@ export default function AddPostScreen({ route }) {
     try {
       setLoading(true);
       
-      // Filter out empty image URLs and create images array
       const validImageUrls = imageUrls.filter(url => url.trim() !== "");
-      const images = validImageUrls.map((url, index) => ({
-        url: getAbsoluteImageUrl(url.trim()),
+      const resolvedImageUrls = [];
+
+      for (const rawImageUrl of validImageUrls) {
+        const trimmedImageUrl = rawImageUrl.trim();
+
+        if (isLocalFileUri(trimmedImageUrl)) {
+          const uploadedUrl = await uploadImageFromUri(trimmedImageUrl);
+          resolvedImageUrls.push(uploadedUrl);
+          continue;
+        }
+
+        resolvedImageUrls.push(getAbsoluteImageUrl(trimmedImageUrl));
+      }
+
+      const images = resolvedImageUrls.map((url, index) => ({
+        url,
         sort_order: index + 1
       }));
       

@@ -2,6 +2,7 @@
   "expo": {
     "name": "mobile-seller-app",
     "slug": "mobile-seller-app",
+    "scheme": "mobilesellerapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +21,19 @@
               "android.permission.WRITE_EXTERNAL_STORAGE"
             ]
           }
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "disableIOS": true,
+          "androidIntentFilters": [
+            "text/*",
+            "image/*"
+          ],
+          "androidMultiIntentFilters": [
+            "image/*"
+          ]
         }
       ]
     ],

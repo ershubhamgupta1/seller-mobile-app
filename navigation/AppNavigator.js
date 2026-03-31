@@ -24,6 +24,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import TrustMeterScreen from '../screens/TrustMeterScreen';
 import FeedScreen from '../screens/FeedScreen';
+import IncomingShareScreen from '../screens/IncomingShareScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -148,6 +149,7 @@ const AppNavigator = () => {
         <Stack.Screen name="dashboard" component={DashboardScreen} />
         <Stack.Screen name="payoutHistory" component={PayoutHistoryScreen} />
         <Stack.Screen name="userProfile" component={UserProfileScreen} />
+        <Stack.Screen name="handleShare" component={IncomingShareScreen} />
         <Stack.Screen name="addPost" component={AddProductScreen} />
         <Stack.Screen name="feedScreen" component={FeedScreen} />
 
