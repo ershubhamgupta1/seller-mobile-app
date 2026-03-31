@@ -83,6 +83,50 @@ export const removeAuthToken = async () => {
   }
 };
 
+const uploadRequest = async (endpoint, formData) => {
+  const url = `${API_BASE}${endpoint}`;
+  const token = await getAuthToken();
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  console.log('url==========', url);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    const responseData = await response.json().catch(() => ({}));
+    console.log('response json==========', responseData);
+
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        await removeAuthToken();
+        safeRedirectToLogin();
+        console.warn('Authentication expired - redirecting to login');
+        return;
+      }
+
+      throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return responseData;
+  } catch (error) {
+    console.error('Upload request error:', error);
+
+    if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+      await removeAuthToken();
+      safeRedirectToLogin();
+      console.warn('Authentication error - redirecting to login');
+      return;
+    }
+
+    throw error;
+  }
+};
+
 // Generic API request function
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE}${endpoint}`;
@@ -277,6 +321,15 @@ export const payouts = {
   getPayouts: () => apiRequest('/api/business/payouts/me'),
 };
 
+// Uploads
+export const uploads = {
+  uploadInventoryImage: (fileAsset) => {
+    const formData = new FormData();
+    formData.append('file', fileAsset);
+    return uploadRequest('/api/business/uploads/inventory-image', formData);
+  },
+};
+
 // Export all services as default
 export default {
   healthCheck,
@@ -288,6 +341,7 @@ export default {
   orders,
   feed,
   payouts,
+  uploads,
   setAuthToken,
   getAuthToken,
   removeAuthToken,

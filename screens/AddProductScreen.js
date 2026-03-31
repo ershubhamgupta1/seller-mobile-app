@@ -11,11 +11,12 @@ import {
   Image,
   Linking
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { inventory } from "../services/api";
+import { API_BASE, inventory, uploads } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 const COLORS = {
   bg: "#f9fafb",
@@ -24,6 +25,14 @@ const COLORS = {
   textPrimary: "#111827",
   textSecondary: "#4b5563",
   textMuted: "#6b7280",
+};
+
+const FORM_INPUT_FONT_SIZE = 12;
+
+const getAbsoluteImageUrl = (value) => {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
 };
 
 const BestPractices = ()=>{
@@ -52,7 +61,7 @@ const PreviewCard = ({ imageUrl }) => {
 
       <View style={styles.previewWrapper}>
         <Image
-          source={{ uri: imageUrl }}
+          source={{ uri: getAbsoluteImageUrl(imageUrl) }}
           style={styles.previewImage}
         />
       </View>
@@ -102,13 +111,71 @@ export default function AddPostScreen({ route }) {
   const [color, setColor] = useState(post?.attributes?.color || "");
   const [size, setSize] = useState(post?.attributes?.size || "");
   const [caption, setCaption] = useState(post?.caption || "");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => img.url) : [""]);
+  const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => getAbsoluteImageUrl(img.url)) : [""]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || "instagram");
-  const [showPlatformDropdown, setShowPlatformDropdown] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState("fashion");
-  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [loading, setLoading] = useState(false);
+
+  const pickAndUploadImages = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', 'Gallery permission is required to pick images');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      setUploadingImages(true);
+
+      const assets = result.assets || [];
+      const uploadedUrls = [];
+
+      for (const asset of assets) {
+        const uri = asset.uri;
+        if (!uri) continue;
+
+        const fileName = asset.fileName || uri.split('/').pop() || `image-${Date.now()}.jpg`;
+        const ext = (fileName.split('.').pop() || 'jpg').toLowerCase();
+        const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
+        const fileAsset = {
+          uri,
+          name: fileName,
+          type: mimeType,
+        };
+
+        const res = await uploads.uploadInventoryImage(fileAsset);
+        const publicUrl = res?.url ? res.url : null;
+        if (!publicUrl) {
+          throw new Error('Upload succeeded but no image URL was returned');
+        }
+        uploadedUrls.push(getAbsoluteImageUrl(publicUrl));
+      }
+
+      if (uploadedUrls.length === 0) {
+        Alert.alert('Error', 'No images were uploaded');
+        return;
+      }
+
+      setImageUrls((prev) => {
+        const existing = (prev || []).filter((u) => (u || '').trim() !== '');
+        return [...existing, ...uploadedUrls, ''];
+      });
+    } catch (e) {
+      console.error('Error picking/uploading images:', e);
+      Alert.alert('Error', 'Failed to upload images');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
   const handleCreatePost = async () => {
     // Validation
@@ -131,7 +198,7 @@ export default function AddPostScreen({ route }) {
       // Filter out empty image URLs and create images array
       const validImageUrls = imageUrls.filter(url => url.trim() !== "");
       const images = validImageUrls.map((url, index) => ({
-        url: url.trim(),
+        url: getAbsoluteImageUrl(url.trim()),
         sort_order: index + 1
       }));
       
@@ -244,16 +311,17 @@ export default function AddPostScreen({ route }) {
   };
 
   const platforms = [
-    { value: "instagram", label: "Instagram" },
-    { value: "pinterest", label: "Pinterest" },
-    { value: "facebook", label: "Facebook" },
+    { value: "instagram", label: "Instagram", icon: "instagram", color: "#e1306c" },
+    { value: "facebook", label: "Facebook", icon: "facebook-official", color: "#1877f2" },
+    { value: "pinterest", label: "Pinterest", icon: "pinterest-p", color: "#e60023" },
 
   ];
 
   const templates = [
-    { value: "fashion", label: "Fashion" },
-    { value: "grocery", label: "Grocery" },
-    { value: "electronics", label: "Electronics" }
+    { value: "default", label: "Default", icon: "magic", color: "#475569" },
+    { value: "fashion", label: "Fashion", icon: "tshirt", color: "#e11d48" },
+    { value: "electronics", label: "Electronics", icon: "microchip", color: "#0284c7" },
+    { value: "grocery", label: "Grocery", icon: "shopping-basket", color: "#059669" }
   ];
 
   return (
@@ -296,71 +364,119 @@ export default function AddPostScreen({ route }) {
             <Text style={styles.description}>
               {isEditMode ? post.social_url : 'Paste your social link, then add structured details like price and material.'}
             </Text>
-            {
-              !isEditMode &&
-              <>
-                <Text style={styles.label}>Platform</Text>
-                <View style={styles.dropdownContainer}>
-                  <TouchableOpacity 
-                    style={styles.dropdown}
-                    onPress={() => setShowPlatformDropdown(!showPlatformDropdown)}
-                  >
-                    <Text>
-                      {platforms.find(p => p.value === selectedPlatform)?.label || "Instagram"}
-                    </Text>
-                    <Feather name="chevron-down" size={18} />
-                  </TouchableOpacity>
-                  {showPlatformDropdown && (
-                    <View style={styles.dropdownList}>
-                      {platforms.map((platform) => (
-                        <TouchableOpacity
-                          key={platform.value}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setSelectedPlatform(platform.value);
-                            setShowPlatformDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>{platform.label}</Text>
-                        </TouchableOpacity>
-                      ))}
+
+            {/* Images */}
+
+            <View style={styles.imageCard}>
+
+              <View style={styles.rowBetween}>
+                <View>
+                  <Text style={styles.imageTitle}>Add images</Text>
+                  <Text style={styles.helperText}>Pick from your device or paste image URLs.</Text>
+                </View>
+              </View>
+
+              {uploadingImages && (
+                <View style={styles.uploadStatusRow}>
+                  <ActivityIndicator size="small" color="#111827" />
+                  <Text style={styles.uploadStatusText}>Uploading images...</Text>
+                </View>
+              )}
+
+              {/* Thumbnails */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
+                <TouchableOpacity
+                  style={styles.thumbAddTile}
+                  onPress={pickAndUploadImages}
+                  disabled={uploadingImages || loading}
+                  activeOpacity={0.9}
+                >
+                  <Ionicons name="add" size={28} color="#4b5563" />
+                </TouchableOpacity>
+
+                {imageUrls
+                  .filter((u) => (u || '').trim() !== '')
+                  .map((u, idx) => {
+                    return (
+                    <View key={`${u}-${idx}`} style={styles.thumbTile}>
+                      <Image source={{ uri: getAbsoluteImageUrl(u) }} style={styles.thumbImage} />
+                      <TouchableOpacity
+                        style={styles.thumbRemove}
+                        onPress={() => {
+                          const urlIndex = imageUrls.findIndex((x) => x === u);
+                          if (urlIndex >= 0) removeImageUrl(urlIndex);
+                        }}
+                      >
+                        <Feather name="x" size={14} color="#fff" />
+                      </TouchableOpacity>
                     </View>
+                  )
+                  })}
+              </ScrollView>
+
+              <View style={styles.imageUrlHeader}>
+                <Text style={styles.imageUrlTitle}>Image URLs</Text>
+                <TouchableOpacity style={styles.addButtonSmall} onPress={addImageUrl}>
+                  <Text style={styles.addButtonSmallText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {imageUrls.map((imageUrl, index) => (
+                <View key={index} style={styles.imageInputContainer}>
+                  <TextInput
+                    style={[styles.input, {width: '80%'}]}
+                    placeholder={`https://... image url ${index + 1}`}
+                    value={imageUrl}
+                    onChangeText={(value) => updateImageUrl(index, value)}
+                  />
+                  {imageUrls.length > 1 && (
+                    <TouchableOpacity 
+                      style={styles.removeButton}
+                      onPress={() => removeImageUrl(index)}
+                    >
+                      <Feather name="x" size={16} color="#666" />
+                    </TouchableOpacity>
                   )}
                 </View>
-              </>
-            }
+              ))}
+
+            </View>
             {
               !isEditMode &&
               <>
                 <Text style={styles.label}>Template</Text>
 
-                <View style={styles.dropdownContainer}>
-                  <TouchableOpacity 
-                    style={styles.dropdown}
-                    onPress={() => setShowTemplateDropdown(!showTemplateDropdown)}
-                  >
-                    <Text>
-                      {templates.find(t => t.value === selectedTemplate)?.label || "Fashion"}
-                    </Text>
-                    <Feather name="chevron-down" size={18} />
-                  </TouchableOpacity>
+                <View style={styles.templateGrid}>
+                  {templates.map((template) => {
+                    const isSelected = selectedTemplate === template.value;
 
-                  {showTemplateDropdown && (
-                    <View style={styles.dropdownList}>
-                      {templates.map((template) => (
-                        <TouchableOpacity
-                          key={template.value}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setSelectedTemplate(template.value);
-                            setShowTemplateDropdown(false);
-                          }}
+                    return (
+                      <TouchableOpacity
+                        key={template.value}
+                        style={[
+                          styles.templateCard,
+                          isSelected && styles.templateCardSelected,
+                        ]}
+                        onPress={() => setSelectedTemplate(template.value)}
+                        activeOpacity={0.9}
+                      >
+                        <FontAwesome5
+                          name={template.icon}
+                          size={22}
+                          color={template.color}
+                          solid={template.value !== "default"}
+                        />
+                        <Text
+                          style={[
+                            styles.templateCardText,
+                            isSelected && styles.templateCardTextSelected,
+                          ]}
                         >
-                          <Text style={styles.dropdownItemText}>{template.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                          {template.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </>  
             }
@@ -375,6 +491,38 @@ export default function AddPostScreen({ route }) {
                   value={url}
                   onChangeText={setUrl}
                 />
+
+                <View style={styles.platformGrid}>
+                  {platforms.map((platform) => {
+                    const isSelected = selectedPlatform === platform.value;
+
+                    return (
+                      <TouchableOpacity
+                        key={platform.value}
+                        style={[
+                          styles.platformCard,
+                          isSelected && styles.platformCardSelected,
+                        ]}
+                        onPress={() => setSelectedPlatform(platform.value)}
+                        activeOpacity={0.9}
+                      >
+                        <FontAwesome
+                          name={platform.icon}
+                          size={22}
+                          color={platform.color}
+                        />
+                        <Text
+                          style={[
+                            styles.platformCardText,
+                            isSelected && styles.platformCardTextSelected,
+                          ]}
+                        >
+                          {platform.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </>
             }
 
@@ -469,44 +617,6 @@ export default function AddPostScreen({ route }) {
               onChangeText={setCaption}
               multiline
             />
-
-
-            {/* Images */}
-
-            <View style={styles.imageCard}>
-
-              <View style={styles.rowBetween}>
-                <Text style={styles.imageTitle}>Images</Text>
-
-                <TouchableOpacity style={styles.addButton} onPress={addImageUrl}>
-                  <Text>Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.helperText}>
-                Paste image URLs for now. Later we'll add uploads to Google Cloud Storage.
-              </Text>
-
-              {imageUrls.map((imageUrl, index) => (
-                <View key={index} style={styles.imageInputContainer}>
-                  <TextInput
-                    style={[styles.input, {width: '80%'}]}
-                    placeholder={`https://... image url ${index + 1}`}
-                    value={imageUrl}
-                    onChangeText={(value) => updateImageUrl(index, value)}
-                  />
-                  {imageUrls.length > 1 && (
-                    <TouchableOpacity 
-                      style={styles.removeButton}
-                      onPress={() => removeImageUrl(index)}
-                    >
-                      <Feather name="x" size={16} color="#666" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-
-            </View>
 
 
             {/* Buttons */}
@@ -632,51 +742,97 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    fontSize: 16,
+    fontSize: FORM_INPUT_FONT_SIZE,
   },
 
-  dropdown: {
+  templateGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#e5e7eb"
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+    marginTop: 4,
   },
 
-  dropdownContainer: {
-    position: "relative"
-  },
-
-  dropdownList: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
+  templateCard: {
+    // width: "48%",
+    // minHeight: 28,
+    alignSelf: "flex-start",
+    marginRight: 12,
+    marginBottom: 12,
+    borderRadius: 30,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    borderRadius: 12,
-    marginTop: 4,
-    zIndex: 1000,
-    elevation: 3,
+    backgroundColor: "#ffffff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: 12,
   },
 
-  dropdownItem: {
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6"
+  templateCardSelected: {
+    borderColor: "#f2c7a5",
+    borderWidth: 2,
+    backgroundColor: "#fffaf5",
   },
 
-  dropdownItemText: {
-    fontSize: 16,
-    color: "#374151"
+  templateCardText: {
+    fontSize: FORM_INPUT_FONT_SIZE,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  templateCardTextSelected: {
+    color: "#0f172a",
+  },
+
+  platformGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+    marginTop: 16,
+  },
+
+  platformCard: {
+    alignSelf: "flex-start",
+    marginRight: 12,
+    marginBottom: 12,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: 12,
+  },
+
+  platformCardSelected: {
+    borderColor: "#f2c7a5",
+    borderWidth: 2,
+    backgroundColor: "#fffaf5",
+  },
+
+  platformCardText: {
+    fontSize: FORM_INPUT_FONT_SIZE,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  platformCardTextSelected: {
+    color: "#0f172a",
   },
 
   textarea: {
@@ -709,12 +865,88 @@ const styles = StyleSheet.create({
     fontWeight: "600"
   },
 
-  addButton: {
+  uploadStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+
+  uploadStatusText: {
+    fontSize: 14,
+    color: "#4b5563",
+  },
+
+  thumbRow: {
+    marginTop: 12,
+  },
+
+  thumbAddTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+
+  thumbTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    marginRight: 10,
+  },
+
+  thumbImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  thumbRemove: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  imageUrlHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+  },
+
+  imageUrlTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  addButtonSmall: {
     borderWidth: 1,
     borderColor: "#ddd",
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 20
+    borderRadius: 20,
+    backgroundColor: "#fff",
+  },
+
+  addButtonSmallText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
   },
 
   imageInputContainer: {
