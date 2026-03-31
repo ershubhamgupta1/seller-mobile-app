@@ -15,7 +15,7 @@ import {
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { API_BASE, inventory, uploads } from "../services/api";
+import { API_BASE, inventory, shop, uploads } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -55,6 +55,73 @@ const isCsvFileAsset = (asset = {}) => {
 };
 
 const normalizeCsvValue = (value = "") => value.replace(/^\uFEFF/, "").trim();
+
+const normalizeSocialHandleUrl = (platform, value = "") => {
+  const normalizedValue = normalizeCsvValue(value);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const sanitizedHandle = normalizedValue.replace(/^@/, "").replace(/^\/+|\/+$/g, "");
+
+  if (!sanitizedHandle) {
+    return "";
+  }
+
+  if (platform === "instagram") {
+    return `https://www.instagram.com/${sanitizedHandle}/`;
+  }
+
+  if (platform === "facebook") {
+    return `https://www.facebook.com/${sanitizedHandle}`;
+  }
+
+  if (platform === "pinterest") {
+    return `https://www.pinterest.com/${sanitizedHandle}/`;
+  }
+
+  return sanitizedHandle;
+};
+
+const extractInstagramUsername = (value = "") => {
+  const normalizedUrl = normalizeSocialHandleUrl("instagram", value);
+
+  if (!normalizedUrl) {
+    return "";
+  }
+
+  const normalizedPath = normalizedUrl
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+    .split(/[?#]/)[0]
+    .split("/")
+    .filter(Boolean);
+
+  return normalizedPath[0] || "";
+};
+
+const buildNativeSocialUrl = (platform, value = "") => {
+  const normalizedUrl = normalizeSocialHandleUrl(platform, value);
+
+  if (!normalizedUrl) {
+    return "";
+  }
+
+  if (platform === "instagram") {
+    const username = extractInstagramUsername(value);
+    return username ? `instagram://user?username=${encodeURIComponent(username)}` : "";
+  }
+
+  if (platform === "facebook") {
+    return `fb://facewebmodal/f?href=${encodeURIComponent(normalizedUrl)}`;
+  }
+
+  return "";
+};
 
 const parseOptionalNumber = (value = "") => {
   const normalizedValue = normalizeCsvValue(value);
@@ -271,6 +338,11 @@ export default function AddPostScreen({ route }) {
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [bulkActionLoading, setBulkActionLoading] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [shopSocialHandles, setShopSocialHandles] = useState({
+    instagram: "",
+    facebook: "",
+    pinterest: "",
+  });
   const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
 
   useEffect(() => {
@@ -299,6 +371,39 @@ export default function AddPostScreen({ route }) {
       setImageUrls(ensureTrailingImageInput(sharedDraft.imageUrls));
     }
   }, [isEditMode, sharedDraft]);
+
+  useEffect(() => {
+    if (isEditMode) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchShopSocialHandles = async () => {
+      try {
+        const response = await shop.getMyShop();
+        const shopResponse = response?.shop || {};
+
+        if (!isMounted) {
+          return;
+        }
+
+        setShopSocialHandles({
+          instagram: normalizeCsvValue(shopResponse.instagram_handle),
+          facebook: normalizeCsvValue(shopResponse.facebook_handle),
+          pinterest: normalizeCsvValue(shopResponse.pinterest_handle),
+        });
+      } catch (error) {
+        console.error("Error fetching shop social handles:", error);
+      }
+    };
+
+    fetchShopSocialHandles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isEditMode]);
 
   const uploadImageFromUri = async (uri, fileName) => {
     const resolvedFileName = fileName || uri.split("/").pop()?.split("?")[0] || `image-${Date.now()}.jpg`;
@@ -364,6 +469,43 @@ export default function AddPostScreen({ route }) {
       Alert.alert('Error', 'Failed to upload images');
     } finally {
       setUploadingImages(false);
+    }
+  };
+
+  const handlePlatformPress = async (platform) => {
+    setSelectedPlatform(platform.value);
+
+    const configuredHandle = shopSocialHandles[platform.value];
+
+    if (!configuredHandle) {
+      Alert.alert("Handle not set", `Add your ${platform.label} handle in Shop Profile to open it here.`);
+      return;
+    }
+
+    const webUrl = normalizeSocialHandleUrl(platform.value, configuredHandle);
+    const nativeUrl = buildNativeSocialUrl(platform.value, configuredHandle);
+
+    try {
+      if (nativeUrl) {
+        const canOpenNativeUrl = await Linking.canOpenURL(nativeUrl);
+
+        if (canOpenNativeUrl) {
+          await Linking.openURL(nativeUrl);
+          return;
+        }
+      }
+
+      const canOpenWebUrl = await Linking.canOpenURL(webUrl);
+
+      if (canOpenWebUrl) {
+        await Linking.openURL(webUrl);
+        return;
+      }
+
+      throw new Error("No supported URL found");
+    } catch (error) {
+      console.error(`Error opening ${platform.value} handle:`, error);
+      Alert.alert("Error", `Failed to open your ${platform.label} account.`);
     }
   };
 
@@ -1067,7 +1209,7 @@ export default function AddPostScreen({ route }) {
                           styles.platformCard,
                           isSelected && styles.platformCardSelected,
                         ]}
-                        onPress={() => setSelectedPlatform(platform.value)}
+                        onPress={() => handlePlatformPress(platform)}
                         activeOpacity={0.9}
                       >
                         <FontAwesome
