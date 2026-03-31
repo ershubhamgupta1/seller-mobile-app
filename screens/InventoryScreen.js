@@ -7,7 +7,8 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Image,
-    RefreshControl
+    RefreshControl,
+    useWindowDimensions
 } from "react-native";
 import { inventory } from "../services/api";
 import Header from "../components/Header";
@@ -15,7 +16,30 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
+const getInventoryColumnCount = (width) => {
+    if (width >= 1100) return 4;
+    if (width >= 768) return 3;
+    return 2;
+};
+
+const getInventoryCardWidth = (columns) => {
+    if (columns === 4) return "23.5%";
+    if (columns === 3) return "31.5%";
+    return "48%";
+};
+
+const getInventoryImageHeight = (columns) => {
+    if (columns >= 4) return 180;
+    if (columns === 3) return 220;
+    return 200;
+};
+
 const InventoryScreen = ({ navigation }) => {
+
+    const { width } = useWindowDimensions();
+    const columnCount = getInventoryColumnCount(width);
+    const cardWidth = getInventoryCardWidth(columnCount);
+    const imageHeight = getInventoryImageHeight(columnCount);
 
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
@@ -102,43 +126,45 @@ const InventoryScreen = ({ navigation }) => {
 
                     </View>
 
-                    {posts.map((item) => (
-                        <TouchableOpacity 
-                            key={item.id} 
-                            style={styles.postCard}
-                            onPress={() => navigation.navigate("addPost", { post: item })}
-                        >
-                            <View style={styles.postImageWrapper}>
-                                <Image
-                                    source={{ uri: item.images[0]?.url }}
-                                    style={styles.postImage}
-                                />
-                                <View style={styles.instagramBadge}>
-                                    <Text style={styles.instagramText}>{item.social_platform}</Text>
-                                </View>
-                                <View style={styles.priceBadge}>
-                                    <Text style={styles.priceBadgeText}>₹ {item.price}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.postInfo}>
-                                <Text style={styles.postTitle}>{item.title}</Text>
-                                <Text style={styles.postMaterial}>{item.material}</Text>
-                                <View style={styles.postFooter}>
-                                    <View style={styles.postStats}>
-                                        <Feather name="image" size={16} />
-                                        <Text style={styles.statText}>
-                                            {item.inventory_image_count}
-                                        </Text>
-                                        <Feather name="share-2" size={16} />
-                                        <Text style={styles.statText}>
-                                            {item.share_count}
-                                        </Text>
+                    <View style={styles.postsGrid}>
+                        {posts.map((item) => (
+                            <TouchableOpacity 
+                                key={item.id} 
+                                style={[styles.postCard, { width: cardWidth }]}
+                                onPress={() => navigation.navigate("addPost", { post: item })}
+                            >
+                                <View style={styles.postImageWrapper}>
+                                    <Image
+                                        source={{ uri: item.images[0]?.url }}
+                                        style={[styles.postImage, { height: imageHeight }]}
+                                    />
+                                    <View style={styles.instagramBadge}>
+                                        <Text style={styles.instagramText}>{item.social_platform}</Text>
                                     </View>
-                                    <Feather name="chevron-right" size={20} />
+                                    <View style={styles.priceBadge}>
+                                        <Text style={styles.priceBadgeText}>₹ {item.price}</Text>
+                                    </View>
                                 </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+                                <View style={styles.postInfo}>
+                                    <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
+                                    <Text style={styles.postMaterial} numberOfLines={1}>{item.material}</Text>
+                                    <View style={styles.postFooter}>
+                                        <View style={styles.postStats}>
+                                            <Feather name="image" size={16} />
+                                            <Text style={styles.statText}>
+                                                {item.inventory_image_count}
+                                            </Text>
+                                            <Feather name="share-2" size={16} />
+                                            <Text style={styles.statText}>
+                                                {item.share_count}
+                                            </Text>
+                                        </View>
+                                        <Feather name="chevron-right" size={20} />
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
 
                 </View>
 
@@ -162,6 +188,12 @@ const styles = StyleSheet.create({
 
     content: {
         paddingHorizontal: 20
+    },
+
+    postsGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between"
     },
 
     loadingContainer: {
@@ -220,7 +252,7 @@ const styles = StyleSheet.create({
     postCard: {
         backgroundColor: "#fff",
         borderRadius: 20,
-        marginBottom: 20,
+        marginBottom: 16,
         borderWidth: 1,
         borderColor: "#e5e7eb",
         overflow: "hidden"
@@ -254,26 +286,28 @@ const styles = StyleSheet.create({
         bottom: 12,
         right: 12,
         backgroundColor: "#fff",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 20
     },
 
     priceBadgeText: {
+        fontSize: 12,
         fontWeight: "600"
     },
 
     postInfo: {
-        padding: 16
+        padding: 12
     },
 
     postTitle: {
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: "600"
     },
 
     postMaterial: {
         color: "#6b7280",
+        fontSize: 12,
         marginTop: 4
     },
 
