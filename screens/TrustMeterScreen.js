@@ -1,10 +1,44 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Image } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TextInput } from "react-native";
-import { verification } from '../services/api';
+import * as ImagePicker from "expo-image-picker";
+import { API_BASE, verification, uploads } from '../services/api';
 import { useNavigation } from "@react-navigation/native";
+
+const getVerificationItemType = (title = "") => {
+  const normalizedTitle = title.toLowerCase();
+
+  if (normalizedTitle.includes("gst")) return "gst";
+  if (normalizedTitle.includes("social proof")) return "socialProof";
+  if (normalizedTitle.includes("follower")) return "followers";
+  if (normalizedTitle.includes("shop photo") || normalizedTitle.includes("physical shop")) return "shopPhotos";
+
+  return null;
+};
+
+const getMimeTypeFromUri = (value = "") => {
+  const sanitizedValue = value.split("?")[0];
+  const ext = (sanitizedValue.split(".").pop() || "jpg").toLowerCase();
+
+  if (["png"].includes(ext)) return "image/png";
+  if (["webp"].includes(ext)) return "image/webp";
+  if (["heic", "heif"].includes(ext)) return "image/heic";
+
+  return "image/jpeg";
+};
+
+const ensureTrailingImageInput = (values = []) => {
+  const nonEmptyValues = (values || []).filter((value) => (value || "").trim() !== "");
+  return nonEmptyValues.length > 0 ? [...nonEmptyValues, ""] : [""];
+};
+
+const getAbsoluteImageUrl = (value) => {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || /^(file|content):\/\//i.test(value) || /^data:/i.test(value)) return value;
+  return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
+};
 
 export default function VerificationScreen() {
   const navigation = useNavigation();
@@ -39,6 +73,8 @@ export default function VerificationScreen() {
 
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingShopPhotos, setUploadingShopPhotos] = useState(false);
+  const [isEditingVerification, setIsEditingVerification] = useState(false);
 
   useEffect(()=>{
     fetchVerificationData();
@@ -73,6 +109,7 @@ export default function VerificationScreen() {
       setSavingDraft(true);
       const payload = buildPayload();
       await verification.saveDraft(payload);
+      setIsEditingVerification(false);
       Alert.alert("Saved", "Draft saved successfully");
       fetchVerificationData();
     } catch (error) {
@@ -94,6 +131,7 @@ export default function VerificationScreen() {
         return;
       }
       await verification.submitForReview(payload);
+      setIsEditingVerification(false);
       Alert.alert("Submitted", "Submitted for review successfully");
       fetchVerificationData();
     } catch (error) {
@@ -116,6 +154,86 @@ export default function VerificationScreen() {
     setShopPhotoUrls((prev) => ([...(prev || []), ""]));
   };
 
+  const removeShopPhotoUrl = (index) => {
+    setShopPhotoUrls((prev) => {
+      const next = (prev || []).filter((_, currentIndex) => currentIndex !== index);
+      return next.length > 0 ? ensureTrailingImageInput(next) : [""];
+    });
+  };
+
+  const uploadShopPhotoFromUri = async (uri, fileName) => {
+    const resolvedFileName = fileName || uri.split("/").pop()?.split("?")[0] || `shop-photo-${Date.now()}.jpg`;
+    const fileAsset = {
+      uri,
+      name: resolvedFileName,
+      type: getMimeTypeFromUri(resolvedFileName),
+    };
+
+    const response = await uploads.uploadInventoryImage(fileAsset);
+    const publicUrl = response?.url ? response.url : null;
+
+    if (!publicUrl) {
+      throw new Error("Upload succeeded but no image URL was returned");
+    }
+
+    return getAbsoluteImageUrl(publicUrl);
+  };
+
+  const pickAndUploadShopPhotos = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permission.status !== "granted") {
+        Alert.alert("Permission required", "Gallery permission is required to pick images");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      setUploadingShopPhotos(true);
+
+      const assets = result.assets || [];
+      const uploadedUrls = [];
+
+      for (const asset of assets) {
+        const uri = asset.uri;
+
+        if (!uri) {
+          continue;
+        }
+
+        const uploadedUrl = await uploadShopPhotoFromUri(
+          uri,
+          asset.fileName || uri.split("/").pop() || `shop-photo-${Date.now()}.jpg`
+        );
+        uploadedUrls.push(uploadedUrl);
+      }
+
+      if (uploadedUrls.length === 0) {
+        Alert.alert("Error", "No images were uploaded");
+        return;
+      }
+
+      setShopPhotoUrls((prev) => {
+        const existing = (prev || []).filter((value) => (value || "").trim() !== "");
+        return [...existing, ...uploadedUrls, ""];
+      });
+    } catch (error) {
+      console.error("Error picking/uploading shop photos:", error);
+      Alert.alert("Error", "Failed to upload shop photos");
+    } finally {
+      setUploadingShopPhotos(false);
+    }
+  };
+
   const hydrateFormFromSubmission = (submission) => {
     if (!submission) return;
 
@@ -131,7 +249,7 @@ export default function VerificationScreen() {
     const urls = Array.isArray(submission?.shop_photo_urls)
       ? submission.shop_photo_urls.filter(Boolean)
       : [];
-    setShopPhotoUrls(urls.length > 0 ? urls : [""]);
+    setShopPhotoUrls(ensureTrailingImageInput(urls));
   };
 
   const fetchVerificationData = async()=>{
@@ -203,6 +321,22 @@ export default function VerificationScreen() {
     effectiveStatus === 'SUBMITTED' ||
     !!submission?.submitted_at;
 
+  useEffect(() => {
+    if (effectiveStatus === 'VERIFIED') {
+      setIsEditingVerification(false);
+    }
+  }, [effectiveStatus]);
+
+  const editableItemIndexes = verificationItems.reduce((indexes, item, index) => {
+    if (getVerificationItemType(item.title)) {
+      indexes.push(index);
+    }
+
+    return indexes;
+  }, []);
+
+  const lastEditableItemIndex = editableItemIndexes[editableItemIndexes.length - 1] ?? -1;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.customHeader}>
@@ -255,115 +389,202 @@ export default function VerificationScreen() {
               />
             </View>
 
-            {verificationItems.map((item, index) => (
-              <View key={index} style={styles.item}>
-                <View style={{ flex: 2 }}>
-                  <Text style={styles.itemTitle} ellipsizeMode="tail" numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.points}>{item.points} pts</Text>
-                </View>
+            {verificationItems.map((item, index) => {
+              const itemType = getVerificationItemType(item.title);
+              const isEditableItem = shopStatus !== 'VERIFIED' && !!itemType;
+              const showInlineEditor = isEditableItem && isEditingVerification;
+              const showActionRow = showInlineEditor && index === lastEditableItemIndex;
 
-                <StatusBadge done={item.done} />
-              </View>
-            ))}
+              return (
+                <View key={index} style={[styles.item, showInlineEditor && styles.itemExpanded]}>
+                  <View style={styles.itemHeader}>
+                    <View style={styles.itemContent}>
+                      <Text style={styles.itemTitle} ellipsizeMode="tail" numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.points}>{item.points} pts</Text>
+                    </View>
+
+                    <View style={styles.itemMeta}>
+                      {isEditableItem && (
+                        <View style={styles.inlineEditBtnWrap}>
+                          <TouchableOpacity
+                            style={styles.inlineEditBtn}
+                            onPress={() => setIsEditingVerification((prev) => !prev)}
+                            disabled={savingDraft || submitting}
+                          >
+                            <Text style={styles.inlineEditBtnText}>{isEditingVerification ? 'Hide' : 'Edit'}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      <StatusBadge done={item.done} />
+                    </View>
+                  </View>
+
+                  {showInlineEditor && itemType === 'gst' && (
+                    <View style={styles.itemForm}>
+                      <Text style={styles.inlineInputLabel}>GST number</Text>
+                      <TextInput
+                        placeholder="GSTIN"
+                        style={styles.input}
+                        placeholderTextColor="#9ca3af"
+                        value={gstNumber}
+                        onChangeText={setGstNumber}
+                      />
+
+                      <Text style={styles.inlineInputLabel}>GST certificate URL</Text>
+                      <TextInput
+                        placeholder="https://..."
+                        style={styles.input}
+                        placeholderTextColor="#9ca3af"
+                        value={gstDocumentUrl}
+                        onChangeText={setGstDocumentUrl}
+                      />
+                    </View>
+                  )}
+
+                  {showInlineEditor && itemType === 'socialProof' && (
+                    <View style={styles.itemForm}>
+                      <Text style={styles.inlineInputLabel}>Social proof URL</Text>
+                      <TextInput
+                        placeholder="Instagram profile / press / etc"
+                        style={styles.input}
+                        placeholderTextColor="#9ca3af"
+                        value={socialProofUrl}
+                        onChangeText={setSocialProofUrl}
+                      />
+                    </View>
+                  )}
+
+                  {showInlineEditor && itemType === 'followers' && (
+                    <View style={styles.itemForm}>
+                      <Text style={styles.inlineInputLabel}>Follower count</Text>
+                      <TextInput
+                        placeholder="10000"
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholderTextColor="#9ca3af"
+                        value={followerCount}
+                        onChangeText={setFollowerCount}
+                      />
+                    </View>
+                  )}
+
+                  {showInlineEditor && itemType === 'shopPhotos' && (
+                    <View style={styles.itemForm}>
+                      <View style={styles.shopPhotoCard}>
+                        <View style={styles.shopPhotoHeader}>
+                          <View style={styles.inlinePhotoCopy}>
+                            <Text style={styles.shopPhotoTitle}>Physical shop photos</Text>
+                            <Text style={styles.shopPhotoDesc}>Pick from your device or paste photo URLs.</Text>
+                          </View>
+
+                          <View style={styles.shopPhotoActions}>
+                            <TouchableOpacity
+                              style={styles.uploadActionBtn}
+                              onPress={pickAndUploadShopPhotos}
+                              disabled={uploadingShopPhotos || savingDraft || submitting}
+                            >
+                              {uploadingShopPhotos ? (
+                                <ActivityIndicator size="small" color="#111827" />
+                              ) : (
+                                <>
+                                  <Feather name="plus" size={18} color="#111827" />
+                                  <Text style={styles.uploadActionBtnText}>Upload</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.uploadActionBtn} onPress={addShopPhotoUrl}>
+                              <Text style={styles.uploadActionBtnText}>Add URL</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopPhotoThumbRow}>
+                          <TouchableOpacity
+                            style={styles.shopPhotoAddTile}
+                            onPress={pickAndUploadShopPhotos}
+                            disabled={uploadingShopPhotos || savingDraft || submitting}
+                            activeOpacity={0.9}
+                          >
+                            {uploadingShopPhotos ? (
+                              <ActivityIndicator size="small" color="#4b5563" />
+                            ) : (
+                              <Feather name="plus" size={28} color="#4b5563" />
+                            )}
+                          </TouchableOpacity>
+
+                          {shopPhotoUrls
+                            .filter((value) => (value || '').trim() !== '')
+                            .map((value, idx) => {
+                              return (
+                                <View key={`${value}-${idx}`} style={styles.shopPhotoThumbTile}>
+                                  <Image source={{ uri: getAbsoluteImageUrl(value) }} style={styles.shopPhotoThumbImage} />
+                                  <TouchableOpacity
+                                    style={styles.shopPhotoThumbRemove}
+                                    onPress={() => {
+                                      const urlIndex = shopPhotoUrls.findIndex((currentValue, currentIndex) => currentValue === value && currentIndex >= 0);
+                                      if (urlIndex >= 0) removeShopPhotoUrl(urlIndex);
+                                    }}
+                                  >
+                                    <Feather name="x" size={14} color="#fff" />
+                                  </TouchableOpacity>
+                                </View>
+                              );
+                            })}
+                        </ScrollView>
+
+                        {shopPhotoUrls.map((url, idx) => (
+                          <View key={idx} style={styles.shopPhotoInputRow}>
+                            <TextInput
+                              placeholder="https://..."
+                              style={styles.shopPhotoInput}
+                              placeholderTextColor="#9ca3af"
+                              value={url}
+                              onChangeText={(text) => updateShopPhotoUrl(idx, text)}
+                            />
+
+                            {shopPhotoUrls.length > 1 && (
+                              <TouchableOpacity style={styles.shopPhotoRemoveBtn} onPress={() => removeShopPhotoUrl(idx)}>
+                                <Feather name="x" size={16} color="#666" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {showActionRow && (
+                    <View style={styles.itemFormFooter}>
+                      <View style={styles.actionRow}>
+                        <TouchableOpacity style={styles.secondaryBtn} onPress={handleSaveDraft} disabled={savingDraft || submitting}>
+                          {savingDraft ? (
+                            <ActivityIndicator size="small" color="#111827" />
+                          ) : (
+                            <Text style={styles.secondaryBtnText}>Save draft</Text>
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.primaryBtn} onPress={handleSubmitForReview} disabled={savingDraft || submitting}>
+                          {submitting ? (
+                            <ActivityIndicator size="small" color="#111827" />
+                          ) : (
+                            <Text style={styles.primaryBtnText}>Submit for review</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={styles.warningText}>
+                        Upload your Shop QR to your Instagram Highlights. Admin verification is approved only after checking your Instagram page for that QR highlight (fraud prevention).
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
 
           </View>
-          {shopStatus !== 'VERIFIED' && (
-            <View style={styles.card}>
-
-              {/* GST NUMBER */}
-              <Text style={styles.inputLabel}>GST number</Text>
-              <TextInput
-                placeholder="GSTIN"
-                style={styles.input}
-                placeholderTextColor="#9ca3af"
-                value={gstNumber}
-                onChangeText={setGstNumber}
-              />
-
-              {/* GST URL */}
-              <Text style={styles.inputLabel}>GST certificate URL</Text>
-              <TextInput
-                placeholder="https://..."
-                style={styles.input}
-                placeholderTextColor="#9ca3af"
-                value={gstDocumentUrl}
-                onChangeText={setGstDocumentUrl}
-              />
-
-              {/* SOCIAL PROOF */}
-              <Text style={styles.inputLabel}>Social proof URL</Text>
-              <TextInput
-                placeholder="Instagram profile / press / etc"
-                style={styles.input}
-                placeholderTextColor="#9ca3af"
-                value={socialProofUrl}
-                onChangeText={setSocialProofUrl}
-              />
-
-              {/* FOLLOWERS */}
-              <Text style={styles.inputLabel}>Follower count</Text>
-              <TextInput
-                placeholder="10000"
-                style={styles.input}
-                keyboardType="numeric"
-                placeholderTextColor="#9ca3af"
-                value={followerCount}
-                onChangeText={setFollowerCount}
-              />
-
-              {/* SHOP PHOTOS */}
-              <View style={styles.uploadCard}>
-                <View style={styles.rowBetween}>
-                  <View style={{width:'70%'}}>
-                    <Text style={styles.uploadTitle}>Physical shop photos</Text>
-                    <Text style={styles.uploadDesc}>
-                      Paste photo URLs for now (GCS uploads coming).
-                    </Text>
-                  </View>
-            
-                  <TouchableOpacity style={styles.addBtn} onPress={addShopPhotoUrl}>
-                    <Text style={styles.addBtnText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {shopPhotoUrls.map((url, idx) => (
-                  <TextInput
-                    key={idx}
-                    placeholder="https://..."
-                    style={styles.input}
-                    placeholderTextColor="#9ca3af"
-                    value={url}
-                    onChangeText={(text) => updateShopPhotoUrl(idx, text)}
-                  />
-                ))}
-              </View>
-
-              {/* ACTION BUTTONS */}
-              <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.secondaryBtn} onPress={handleSaveDraft} disabled={savingDraft || submitting}>
-                  {savingDraft ? (
-                    <ActivityIndicator size="small" color="#111827" />
-                  ) : (
-                    <Text style={styles.secondaryBtnText}>Save draft</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.primaryBtn} onPress={handleSubmitForReview} disabled={savingDraft || submitting}>
-                  {submitting ? (
-                    <ActivityIndicator size="small" color="#111827" />
-                  ) : (
-                    <Text style={styles.primaryBtnText}>Submit for review</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* NOTE */}
-              <Text style={styles.warningText}>
-                Upload your Shop QR to your Instagram Highlights. Admin verification is approved only after checking your Instagram page for that QR highlight (fraud prevention).
-              </Text>
-
-            </View>
-          )}
           {shopStatus === 'VERIFIED' && (
             <View style={styles.successCard}>
               <Text style={styles.successLabel}>Blue Tick</Text>
@@ -552,9 +773,208 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
+    flexDirection: "column",
+    alignItems: "stretch"
+  },
+
+  itemExpanded: {
+    paddingBottom: 16,
+  },
+
+  itemHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "flex-start"
+  },
+
+  itemContent: {
+    flex: 1,
+    paddingRight: 12
+  },
+
+  itemMeta: {
+    alignItems: "flex-end",
+    justifyContent: "flex-start"
+  },
+
+  inlineEditBtnWrap: {
+    marginBottom: 8,
+  },
+
+  inlineEditBtn: {
+    backgroundColor: "#f3f4f6",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  inlineEditBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  itemForm: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+    paddingTop: 12,
+  },
+
+  inlineInputLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 10,
+  },
+
+  inlineHelperText: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#6b7280",
+  },
+
+  inlineRowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  inlinePhotoCopy: {
+    flex: 1,
+  },
+
+  shopPhotoCard: {
+    backgroundColor: "#fcfcfc",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 20,
+    padding: 14,
+  },
+
+  shopPhotoHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+
+  shopPhotoTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  shopPhotoDesc: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#6b7280",
+  },
+
+  shopPhotoActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  uploadActionBtn: {
+    minWidth: 96,
+    height: 46,
+    paddingHorizontal: 16,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  uploadActionBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  shopPhotoThumbRow: {
+    marginTop: 14,
+  },
+
+  shopPhotoAddTile: {
+    width: 104,
+    height: 104,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    backgroundColor: "#fff",
+  },
+
+  shopPhotoThumbTile: {
+    width: 104,
+    height: 104,
+    borderRadius: 18,
+    overflow: "hidden",
+    marginRight: 12,
+    backgroundColor: "#f3f4f6",
+  },
+
+  shopPhotoThumbImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  shopPhotoThumbRemove: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(17, 24, 39, 0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  shopPhotoInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+
+  shopPhotoInput: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    fontSize: 14,
+  },
+
+  shopPhotoRemoveBtn: {
+    width: 40,
+    height: 40,
+    marginLeft: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+
+  itemFormFooter: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+    paddingTop: 12,
   },
 
   itemTitle: {
@@ -706,10 +1126,8 @@ const styles = StyleSheet.create({
   uploadCard: {
     backgroundColor: "#fff",
     borderRadius: 18,
-    padding: 14,
+    padding: 0,
     marginTop: 16,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
   },
 
   uploadTitle: {
@@ -760,12 +1178,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f59e0b",
     paddingVertical: 14,
-    // paddingHorizontal: 10,
+    paddingHorizontal: 10,
     borderRadius: 20,
     alignItems: "center",
   },
 
   primaryBtnText: {
+    fontSize: 12,
     fontWeight: "600",
     color: "#111827",
   },

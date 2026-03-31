@@ -63,6 +63,8 @@ const LoginScreen = ({ navigation }) => {
               value={email}
               onChangeText={setEmail}
               placeholder="Enter your email"
+              placeholderTextColor="#9ca3af"
+              selectionColor="#111827"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -76,6 +78,8 @@ const LoginScreen = ({ navigation }) => {
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
+              placeholderTextColor="#9ca3af"
+              selectionColor="#111827"
               secureTextEntry
             />
           </View>
@@ -166,6 +170,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f8f9fa',
+    color: '#111827',
   },
   button: {
     backgroundColor: '#f59e0b',

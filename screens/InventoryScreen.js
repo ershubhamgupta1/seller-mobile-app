@@ -126,45 +126,63 @@ const InventoryScreen = ({ navigation }) => {
 
                     </View>
 
-                    <View style={styles.postsGrid}>
-                        {posts.map((item) => (
-                            <TouchableOpacity 
-                                key={item.id} 
-                                style={[styles.postCard, { width: cardWidth }]}
-                                onPress={() => navigation.navigate("addPost", { post: item })}
+                    {posts.length === 0 ? (
+                        <View style={styles.emptyStateCard}>
+                            <View style={styles.emptyStateIconWrap}>
+                                <Feather name="box" size={28} color="#6b7280" />
+                            </View>
+                            <Text style={styles.emptyStateTitle}>No posts yet</Text>
+                            <Text style={styles.emptyStateDescription}>
+                                Create your first inventory post to start showing products here.
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.emptyStateButton}
+                                onPress={() => navigation.navigate("addPost")}
                             >
-                                <View style={styles.postImageWrapper}>
-                                    <Image
-                                        source={{ uri: item.images[0]?.url }}
-                                        style={[styles.postImage, { height: imageHeight }]}
-                                    />
-                                    <View style={styles.instagramBadge}>
-                                        <Text style={styles.instagramText}>{item.social_platform}</Text>
-                                    </View>
-                                    <View style={styles.priceBadge}>
-                                        <Text style={styles.priceBadgeText}>₹ {item.price}</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.postInfo}>
-                                    <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
-                                    <Text style={styles.postMaterial} numberOfLines={1}>{item.material}</Text>
-                                    <View style={styles.postFooter}>
-                                        <View style={styles.postStats}>
-                                            <Feather name="image" size={16} />
-                                            <Text style={styles.statText}>
-                                                {item.inventory_image_count}
-                                            </Text>
-                                            <Feather name="share-2" size={16} />
-                                            <Text style={styles.statText}>
-                                                {item.share_count}
-                                            </Text>
-                                        </View>
-                                        <Feather name="chevron-right" size={20} />
-                                    </View>
-                                </View>
+                                <Text style={styles.emptyStateButtonText}>Create first post</Text>
                             </TouchableOpacity>
-                        ))}
-                    </View>
+                        </View>
+                    ) : (
+                        <View style={styles.postsGrid}>
+                            {posts.map((item) => (
+                                <TouchableOpacity 
+                                    key={item.id} 
+                                    style={[styles.postCard, { width: cardWidth }]}
+                                    onPress={() => navigation.navigate("addPost", { post: item })}
+                                >
+                                    <View style={styles.postImageWrapper}>
+                                        <Image
+                                            source={{ uri: item.images[0]?.url }}
+                                            style={[styles.postImage, { height: imageHeight }]}
+                                        />
+                                        <View style={styles.instagramBadge}>
+                                            <Text style={styles.instagramText}>{item.social_platform}</Text>
+                                        </View>
+                                        <View style={styles.priceBadge}>
+                                            <Text style={styles.priceBadgeText}>₹ {item.price}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.postInfo}>
+                                        <Text style={styles.postTitle} numberOfLines={2}>{item.title}</Text>
+                                        <Text style={styles.postMaterial} numberOfLines={1}>{item.material}</Text>
+                                        <View style={styles.postFooter}>
+                                            <View style={styles.postStats}>
+                                                <Feather name="image" size={16} />
+                                                <Text style={styles.statText}>
+                                                    {item.inventory_image_count}
+                                                </Text>
+                                                <Feather name="share-2" size={16} />
+                                                <Text style={styles.statText}>
+                                                    {item.share_count}
+                                                </Text>
+                                            </View>
+                                            <Feather name="chevron-right" size={20} />
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
 
                 </View>
 
@@ -194,6 +212,58 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         justifyContent: "space-between"
+    },
+
+    emptyStateCard: {
+        backgroundColor: "#f9fafb",
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        paddingVertical: 32,
+        paddingHorizontal: 24,
+        alignItems: "center",
+        marginTop: 8,
+        marginBottom: 20
+    },
+
+    emptyStateIconWrap: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 16
+    },
+
+    emptyStateTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: "#111827"
+    },
+
+    emptyStateDescription: {
+        fontSize: 14,
+        color: "#6b7280",
+        textAlign: "center",
+        marginTop: 8,
+        lineHeight: 20,
+        maxWidth: 280
+    },
+
+    emptyStateButton: {
+        marginTop: 20,
+        backgroundColor: "#f59e0b",
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        borderRadius: 24
+    },
+
+    emptyStateButtonText: {
+        fontWeight: "600",
+        color: "#111827"
     },
 
     loadingContainer: {

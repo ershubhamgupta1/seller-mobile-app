@@ -383,15 +383,15 @@ export default function AddPostScreen({ route }) {
       try {
         const response = await shop.getMyShop();
         const shopResponse = response?.shop || {};
-
+        console.log('shopResponse============', shopResponse);
         if (!isMounted) {
           return;
         }
 
         setShopSocialHandles({
-          instagram: normalizeCsvValue(shopResponse.instagram_handle),
-          facebook: normalizeCsvValue(shopResponse.facebook_handle),
-          pinterest: normalizeCsvValue(shopResponse.pinterest_handle),
+          instagram: normalizeCsvValue(shopResponse.instagram_handle ?? ''),
+          facebook: normalizeCsvValue(shopResponse.facebook_handle ?? ''),
+          pinterest: normalizeCsvValue(shopResponse.pinterest_handle ?? ''),
         });
       } catch (error) {
         console.error("Error fetching shop social handles:", error);
@@ -1675,7 +1675,7 @@ const styles = StyleSheet.create({
   },
 
   imageUrlTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#111827",
   },
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
   },
 
   addButtonSmallText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#111827",
   },
