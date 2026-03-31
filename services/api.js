@@ -83,7 +83,18 @@ export const removeAuthToken = async () => {
   }
 };
 
+const parseUploadResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return response.json().catch(() => ({}));
+  }
+
+  return response.text().catch(() => '');
+};
+
 const uploadRequest = async (endpoint, formData) => {
+  console.log('ready to call uploadRequest======', endpoint);
   const url = `${API_BASE}${endpoint}`;
   const token = await getAuthToken();
   const headers = {
@@ -97,7 +108,7 @@ const uploadRequest = async (endpoint, formData) => {
       headers,
       body: formData,
     });
-    const responseData = await response.json().catch(() => ({}));
+    const responseData = await parseUploadResponse(response);
     console.log('response json==========', responseData);
 
 
@@ -109,7 +120,7 @@ const uploadRequest = async (endpoint, formData) => {
         return;
       }
 
-      throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+      throw new Error((typeof responseData === 'string' ? responseData : responseData.message) || `HTTP error! status: ${response.status}`);
     }
 
     return responseData;

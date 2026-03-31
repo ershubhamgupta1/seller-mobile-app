@@ -9,7 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Linking
+  Linking,
+  Platform
 } from "react-native";
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +18,9 @@ import { useNavigation } from "@react-navigation/native";
 import { API_BASE, inventory, uploads } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 
 const COLORS = {
   bg: "#f9fafb",
@@ -28,8 +32,126 @@ const COLORS = {
 };
 
 const FORM_INPUT_FONT_SIZE = 12;
+const BULK_CSV_TEMPLATE_FILE_NAME = "inventory-bulk-template.csv";
+const BULK_CSV_TEMPLATE = [
+  "social_platform,social_url,template,title,material,price,currency,caption,color,size,delivery_fee_amount,pattern,model_number,warranty_months,expiry_date,image_urls",
+  "instagram,https://www.instagram.com/reel/Cx1a2B3cD4E/,fashion,Banarasi Silk Saree,Silk,1999,INR,Premium silk saree with zari work.,Maroon,Free,50,Floral,,,,https://example.com/image1.jpg|https://example.com/image2.jpg",
+].join("\n");
+
+const getTimestampedBulkCsvFileName = () => `inventory-bulk-template-${Date.now()}.csv`;
 
 const isLocalFileUri = (value = "") => /^(file|content):\/\//i.test(value);
+
+const isCsvFileAsset = (asset = {}) => {
+  const normalizedName = (asset?.name || "").toLowerCase();
+  const normalizedMimeType = (asset?.mimeType || "").toLowerCase();
+
+  return (
+    normalizedName.endsWith(".csv") ||
+    normalizedMimeType.includes("csv") ||
+    normalizedMimeType.includes("comma-separated") ||
+    normalizedMimeType === "application/vnd.ms-excel"
+  );
+};
+
+const normalizeCsvValue = (value = "") => value.replace(/^\uFEFF/, "").trim();
+
+const parseOptionalNumber = (value = "") => {
+  const normalizedValue = normalizeCsvValue(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue.replace(/,/g, ""));
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+};
+
+const parseCsvTable = (csvText = "") => {
+  const rows = [];
+  let currentRow = [];
+  let currentValue = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const character = csvText[index];
+
+    if (character === '"') {
+      if (inQuotes && csvText[index + 1] === '"') {
+        currentValue += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (character === "," && !inQuotes) {
+      currentRow.push(currentValue);
+      currentValue = "";
+      continue;
+    }
+
+    if ((character === "\n" || character === "\r") && !inQuotes) {
+      if (character === "\r" && csvText[index + 1] === "\n") {
+        index += 1;
+      }
+
+      currentRow.push(currentValue);
+
+      if (currentRow.some((value) => normalizeCsvValue(value) !== "")) {
+        rows.push(currentRow);
+      }
+
+      currentRow = [];
+      currentValue = "";
+      continue;
+    }
+
+    currentValue += character;
+  }
+
+  if (currentValue.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentValue);
+
+    if (currentRow.some((value) => normalizeCsvValue(value) !== "")) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+};
+
+const parseBulkCsvRows = (csvText = "") => {
+  const table = parseCsvTable(csvText);
+
+  if (table.length === 0) {
+    throw new Error("CSV file is empty.");
+  }
+
+  const headers = table[0].map((header) => normalizeCsvValue(header).toLowerCase());
+  const requiredHeaders = ["social_platform", "social_url", "title", "price"];
+  const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
+
+  if (missingHeaders.length > 0) {
+    throw new Error(`CSV is missing required columns: ${missingHeaders.join(", ")}`);
+  }
+
+  return table
+    .slice(1)
+    .map((row, rowIndex) => {
+      const values = headers.reduce((accumulator, header, headerIndex) => {
+        accumulator[header] = normalizeCsvValue(row[headerIndex] || "");
+        return accumulator;
+      }, {});
+
+      return {
+        rowNumber: rowIndex + 2,
+        values,
+      };
+    })
+    .filter(({ values }) => Object.values(values).some((value) => value !== ""));
+};
 
 const inferPlatformFromUrl = (value = "") => {
   const normalizedValue = value.toLowerCase();
@@ -145,8 +267,9 @@ export default function AddPostScreen({ route }) {
   const [caption, setCaption] = useState(post?.caption || sharedDraft?.caption || "");
   const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => getAbsoluteImageUrl(img.url)) : initialSharedImageUrls);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || sharedDraft?.platform || inferPlatformFromUrl(sharedDraft?.socialUrl || ""));
+  const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || sharedDraft?.platform || (sharedDraft?.socialUrl ? inferPlatformFromUrl(sharedDraft.socialUrl) : ""));
   const [selectedTemplate, setSelectedTemplate] = useState("default");
+  const [bulkActionLoading, setBulkActionLoading] = useState(null);
   const [loading, setLoading] = useState(false);
   const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
 
@@ -244,8 +367,105 @@ export default function AddPostScreen({ route }) {
     }
   };
 
+  const createPostFromCsvRow = async (rowValues) => {
+    const socialPlatformValue = normalizeCsvValue(rowValues.social_platform).toLowerCase();
+    const socialUrl = normalizeCsvValue(rowValues.social_url);
+    const titleValue = normalizeCsvValue(rowValues.title);
+    const priceValue = parseOptionalNumber(rowValues.price);
+
+    if (!socialPlatformValue) {
+      throw new Error("Missing social_platform.");
+    }
+
+    if (!socialUrl) {
+      throw new Error("Missing social_url.");
+    }
+
+    if (!titleValue) {
+      throw new Error("Missing title.");
+    }
+
+    if (priceValue === null) {
+      throw new Error("Missing or invalid price.");
+    }
+
+    const imageValues = normalizeCsvValue(rowValues.image_urls)
+      ? rowValues.image_urls
+          .split("|")
+          .map((value) => normalizeCsvValue(value))
+          .filter(Boolean)
+      : [];
+
+    const resolvedImageUrls = [];
+
+    for (const rawImageUrl of imageValues) {
+      if (isLocalFileUri(rawImageUrl)) {
+        const uploadedUrl = await uploadImageFromUri(rawImageUrl);
+        resolvedImageUrls.push(uploadedUrl);
+        continue;
+      }
+
+      resolvedImageUrls.push(getAbsoluteImageUrl(rawImageUrl));
+    }
+
+    const postData = {
+      title: titleValue,
+      price: priceValue,
+      attributes: {
+        color: normalizeCsvValue(rowValues.color),
+        size: normalizeCsvValue(rowValues.size),
+        delivery_fee_amount: parseOptionalNumber(rowValues.delivery_fee_amount) ?? 0,
+      },
+      images: resolvedImageUrls.map((resolvedUrl, index) => ({
+        url: resolvedUrl,
+        sort_order: index + 1,
+      })),
+      caption: normalizeCsvValue(rowValues.caption),
+      material: normalizeCsvValue(rowValues.material),
+      social_platform: socialPlatformValue,
+      social_url: socialUrl,
+    };
+
+    const templateValue = normalizeCsvValue(rowValues.template);
+    const currencyValue = normalizeCsvValue(rowValues.currency).toUpperCase();
+    const patternValue = normalizeCsvValue(rowValues.pattern);
+    const modelNumberValue = normalizeCsvValue(rowValues.model_number);
+    const warrantyMonthsValue = parseOptionalNumber(rowValues.warranty_months);
+    const expiryDateValue = normalizeCsvValue(rowValues.expiry_date);
+
+    // if (templateValue) {
+    //   postData.template = templateValue;
+    // }
+
+    // if (currencyValue) {
+    //   postData.currency = currencyValue;
+    // }
+
+    // if (patternValue) {
+    //   postData.pattern = patternValue;
+    // }
+
+    // if (modelNumberValue) {
+    //   postData.model_number = modelNumberValue;
+    // }
+
+    // if (warrantyMonthsValue !== null) {
+    //   postData.warranty_months = warrantyMonthsValue;
+    // }
+
+    // if (expiryDateValue) {
+    //   postData.expiry_date = expiryDateValue;
+    // }
+    console.log('postData===========', postData);
+    return inventory.createPost(postData);
+  };
+
   const handleCreatePost = async () => {
     // Validation
+    if (!isEditMode && !selectedPlatform.trim()) {
+      Alert.alert('Error', 'Please select a social platform');
+      return;
+    }
     if (!url.trim()) {
       Alert.alert('Error', 'Please enter a social post URL');
       return;
@@ -390,6 +610,231 @@ export default function AddPostScreen({ route }) {
     setImageUrls(newImageUrls);
   };
 
+  const promptBulkCsvDownloadAction = () => {
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+
+      Alert.alert(
+        "Download format",
+        "Choose how you want to save the CSV template.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => finish(null),
+          },
+          {
+            text: "Save to folder",
+            onPress: () => finish("save"),
+          },
+          {
+            text: "Share / other apps",
+            onPress: () => finish("share"),
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss: () => finish(null),
+        }
+      );
+    });
+  };
+
+  const prepareBulkCsvTempFile = async () => {
+    const targetDirectory = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+    const fileUri = `${targetDirectory}${BULK_CSV_TEMPLATE_FILE_NAME}`;
+
+    await FileSystem.writeAsStringAsync(fileUri, BULK_CSV_TEMPLATE, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    return fileUri;
+  };
+
+  const saveBulkCsvToAndroidStorage = async () => {
+    const { StorageAccessFramework } = FileSystem;
+
+    if (!StorageAccessFramework) {
+      return null;
+    }
+
+    const initialDirectoryUri = StorageAccessFramework.getUriForDirectoryInRoot("Download");
+    const permission = await StorageAccessFramework.requestDirectoryPermissionsAsync(initialDirectoryUri);
+
+    if (!permission.granted) {
+      return false;
+    }
+
+    let fileName = BULK_CSV_TEMPLATE_FILE_NAME;
+    let fileUri;
+
+    try {
+      fileUri = await StorageAccessFramework.createFileAsync(
+        permission.directoryUri,
+        fileName,
+        "text/csv"
+      );
+    } catch (error) {
+      fileName = getTimestampedBulkCsvFileName();
+      fileUri = await StorageAccessFramework.createFileAsync(
+        permission.directoryUri,
+        fileName,
+        "text/csv"
+      );
+    }
+
+    await FileSystem.writeAsStringAsync(fileUri, BULK_CSV_TEMPLATE, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    return fileName;
+  };
+
+  const handleDownloadBulkCsvFormat = async () => {
+    try {
+      setBulkActionLoading("download");
+
+      const action = Platform.OS === "android"
+        ? await promptBulkCsvDownloadAction()
+        : "share";
+
+      if (!action) {
+        return;
+      }
+
+      if (Platform.OS === "android" && action === "save") {
+        const savedFileName = await saveBulkCsvToAndroidStorage();
+
+        if (savedFileName === false) {
+          Alert.alert("Cancelled", "No folder was selected for saving the CSV file.");
+          return;
+        }
+
+        if (savedFileName) {
+          Alert.alert("Saved", `${savedFileName} has been saved to the selected folder.`);
+          return;
+        }
+      }
+
+      const fileUri = await prepareBulkCsvTempFile();
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "text/csv",
+          dialogTitle: "Download CSV format",
+        });
+      } else {
+        Alert.alert("Format ready", "CSV template saved on your device.");
+      }
+    } catch (error) {
+      console.error("Error downloading CSV template:", error);
+      Alert.alert("Error", "Failed to prepare the CSV format. Please try again.");
+    } finally {
+      setBulkActionLoading(null);
+    }
+  };
+
+  const handleUploadBulkCsv = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["text/csv", "text/comma-separated-values", "application/csv", "application/vnd.ms-excel"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const pickedFile = result.assets?.[0];
+
+      if (!pickedFile?.uri) {
+        Alert.alert("Error", "No CSV file was selected.");
+        return;
+      }
+
+      if (!isCsvFileAsset(pickedFile)) {
+        Alert.alert("Invalid file", "Please select a CSV file.");
+        return;
+      }
+
+      setBulkActionLoading("upload");
+
+      const csvContent = await FileSystem.readAsStringAsync(pickedFile.uri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      const rows = parseBulkCsvRows(csvContent);
+
+      if (rows.length === 0) {
+        Alert.alert("Error", "CSV file does not contain any data rows.");
+        return;
+      }
+
+      let createdCount = 0;
+      const failedRows = [];
+      console.log('rows=========', rows);
+      for (const row of rows) {
+        try {
+          await createPostFromCsvRow(row.values);
+          createdCount += 1;
+        } catch (error) {
+          console.error(`Error creating post for row ${row.rowNumber}:`, error);
+          failedRows.push({
+            rowNumber: row.rowNumber,
+            message: error.message || "Failed to create post.",
+          });
+        }
+      }
+
+      if (createdCount > 0 && failedRows.length === 0) {
+        Alert.alert(
+          "Success",
+          `${createdCount} post${createdCount === 1 ? "" : "s"} created successfully.`,
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+        return;
+      }
+
+      const summaryLines = [];
+
+      if (createdCount > 0) {
+        summaryLines.push(`${createdCount} post${createdCount === 1 ? "" : "s"} created successfully.`);
+      }
+
+      if (failedRows.length > 0) {
+        summaryLines.push(`${failedRows.length} row${failedRows.length === 1 ? "" : "s"} failed.`);
+        failedRows.slice(0, 3).forEach((failedRow) => {
+          summaryLines.push(`Row ${failedRow.rowNumber}: ${failedRow.message}`);
+        });
+
+        if (failedRows.length > 3) {
+          summaryLines.push(`+${failedRows.length - 3} more error${failedRows.length - 3 === 1 ? "" : "s"}`);
+        }
+      }
+
+      Alert.alert(
+        createdCount > 0 ? "Partial import complete" : "Import failed",
+        summaryLines.join("\n") || "No posts were created."
+      );
+    } catch (error) {
+      console.error("Error uploading CSV:", error);
+      Alert.alert("Error", error.message || "Failed to upload CSV. Please try again.");
+    } finally {
+      setBulkActionLoading(null);
+    }
+  };
+
   const platforms = [
     { value: "instagram", label: "Instagram", icon: "instagram", color: "#e1306c" },
     { value: "facebook", label: "Facebook", icon: "facebook-official", color: "#1877f2" },
@@ -444,6 +889,45 @@ export default function AddPostScreen({ route }) {
             <Text style={styles.description}>
               {isEditMode ? post.social_url : 'Paste your social link, then add structured details like price and material.'}
             </Text>
+
+            {!isEditMode && (
+              <View style={styles.bulkCard}>
+                <Text style={styles.bulkTitle}>Bulk create posts</Text>
+                <Text style={styles.helperText}>
+                  Download the CSV format, fill multiple rows, then upload the file to create posts in bulk.
+                </Text>
+
+                <View style={styles.bulkActionsRow}>
+                  <TouchableOpacity
+                    style={styles.bulkActionButton}
+                    onPress={handleDownloadBulkCsvFormat}
+                    disabled={loading || bulkActionLoading !== null}
+                    activeOpacity={0.9}
+                  >
+                    {bulkActionLoading === "download" ? (
+                      <ActivityIndicator size="small" color="#111827" />
+                    ) : (
+                      <Feather name="download" size={22} color="#111827" />
+                    )}
+                    <Text style={styles.bulkActionText}>Download format</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.bulkActionButton}
+                    onPress={handleUploadBulkCsv}
+                    disabled={loading || bulkActionLoading !== null}
+                    activeOpacity={0.9}
+                  >
+                    {bulkActionLoading === "upload" ? (
+                      <ActivityIndicator size="small" color="#111827" />
+                    ) : (
+                      <Feather name="upload" size={22} color="#111827" />
+                    )}
+                    <Text style={styles.bulkActionText}>Upload CSV</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Images */}
 
@@ -938,6 +1422,46 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#e5e7eb"
+  },
+
+  bulkCard: {
+    marginTop: 20,
+    backgroundColor: "#f8f8f8",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb"
+  },
+
+  bulkTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827"
+  },
+
+  bulkActionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+
+  bulkActionButton: {
+    flex: 1,
+    minHeight: 88,
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  bulkActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111827",
   },
 
   imageTitle: {
