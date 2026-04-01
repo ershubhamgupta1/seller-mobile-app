@@ -38,21 +38,23 @@ const MainTabs = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           
-          if (route.name === 'Home') {
+          if (route.name === 'Dashboard') {
             iconName = 'home';
+            // return <FontAwesome5 name={iconName} size={20} color={color} />;
+          } else if (route.name === 'Inventory') {
+            iconName = 'box-open';
             return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Orders') {
-            iconName = 'box-open';
+            iconName = 'shopping-bag';
             return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Add') {
             iconName = 'plus';
-            return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Analytics') {
             iconName = 'graph';
-            return <Octicons name={iconName} size={20} color={color} />;
+              return <Octicons name={iconName} size={20} color={color} />;
+
           } else if (route.name === 'Settings') {
             iconName = 'cog';
-            return <FontAwesome5 name={iconName} size={20} color={color} />;
           }
           
           return <FontAwesome5 name={iconName} size={20} color={color} />;
@@ -72,15 +74,15 @@ const MainTabs = () => {
         options={{ 
           headerShown: false,
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
-              <FontAwesome5 name="home" size={20} color={focused ? '#fff' : color} />
-            </View>
-          )
+          // tabBarIcon: ({ focused, color, size }) => (
+          //   <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
+          //     <FontAwesome5 name="home" size={20} color={focused ? '#fff' : color} />
+          //   </View>
+          // )
         }}
       />
       <Tab.Screen 
-        name="Orders" 
+        name="Inventory" 
         component={InventoryScreen}
         options={{ 
           headerShown: false,
@@ -88,16 +90,16 @@ const MainTabs = () => {
         }}
       />
       <Tab.Screen 
-        name="orders" 
+        name="Orders" 
         component={OrdersScreen}
         options={{ 
           headerShown: false,
           tabBarLabel: 'Orders',
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
-              <FontAwesome5 name="shopping-bag" size={20} color={focused ? '#fff' : color} />
-            </View>
-          )
+          // tabBarIcon: ({ focused, color, size }) => (
+          //   <View style={[styles.addButton, focused && styles.addButtonFocused, { marginBottom: 24 }]}>
+          //     <FontAwesome5 name="shopping-bag" size={20} color={focused ? '#fff' : color} />
+          //   </View>
+          // )
         }}
       />
       <Tab.Screen 

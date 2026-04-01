@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
@@ -46,16 +49,22 @@ const LoginScreen = ({ navigation }) => {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView keyboardShouldPersistTaps="handled"
-         contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>E-KOM</Text>
-          <Text style={styles.subtitle}>
-            {isLogin ? 'Welcome back!' : 'Create your account'}
-          </Text>
-        </View>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.scrollContainer, isTablet && styles.scrollContainerTablet]}
+      >
+        <View style={[styles.authLayout, isTablet && styles.authLayoutTablet]}>
+          <View style={[styles.header, isTablet && styles.headerTablet]}>
+            <Text style={[styles.logo, isTablet && styles.logoTablet]}>E-KOM</Text>
+            <Text style={[styles.subtitle, isTablet && styles.subtitleTablet]}>
+              {isLogin ? 'Welcome back!' : 'Create your account'}
+            </Text>
+            <Text style={[styles.description, isTablet && styles.descriptionTablet]}>
+              Manage your inventory, profile, and orders from one workspace.
+            </Text>
+          </View>
 
-        <View style={styles.form}>
+          <View style={[styles.form, isTablet && styles.formTablet]}>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -105,6 +114,7 @@ const LoginScreen = ({ navigation }) => {
               }
             </Text>
           </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -121,15 +131,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  scrollContainerTablet: {
+    paddingHorizontal: 32,
+    paddingVertical: 40,
+  },
+  authLayout: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
+  authLayoutTablet: {
+    maxWidth: 980,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    gap: 24,
+  },
   header: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  headerTablet: {
+    flex: 1,
+    marginBottom: 0,
+    borderRadius: 24,
+    backgroundColor: '#111827',
+    padding: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 420,
   },
   logo: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 8,
+  },
+  logoTablet: {
+    color: '#f9fafb',
+    fontSize: 42,
+    marginBottom: 18,
   },
   title: {
     fontSize: 32,
@@ -140,6 +181,25 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  subtitleTablet: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+    color: '#fff',
+    maxWidth: 320,
+  },
+  description: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  descriptionTablet: {
+    color: '#d1d5db',
+    textAlign: 'left',
+    maxWidth: 280,
   },
   form: {
     backgroundColor: 'white',
@@ -153,6 +213,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  formTablet: {
+    flex: 1,
+    maxWidth: 460,
+    borderRadius: 24,
+    padding: 32,
+    alignSelf: 'center',
+    minHeight: 420,
+    justifyContent: 'center',
   },
   inputContainer: {
     marginBottom: 20,

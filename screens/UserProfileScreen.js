@@ -7,7 +7,8 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert
+  Alert,
+  useWindowDimensions,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +18,8 @@ import { businessAuth } from "../services/api";
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const { logout } = useAuth();
 
   const [email, setEmail] = useState("smridh@tandev.us");
@@ -156,10 +159,14 @@ export default function ProfileScreen() {
         <Text style={styles.headerTitle}>User Profile</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-        {/* Profile Card */}
-
-        <View style={styles.card}>
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={[styles.pageContent, isTablet && styles.pageContentTablet]}>
+        <View style={[styles.cardGrid, isTablet && styles.cardGridTablet]}>
+        <View style={[styles.card, isTablet && styles.cardHalf]}>
 
           <View style={styles.rowBetween}>
             <View>
@@ -209,7 +216,11 @@ export default function ProfileScreen() {
           {/* Save Button */}
 
           <TouchableOpacity
-            style={[styles.saveButton, (savingProfile || loadingProfile) && styles.saveButtonDisabled]}
+            style={[
+              styles.saveButton,
+              isTablet && styles.actionButtonTablet,
+              (savingProfile || loadingProfile) && styles.saveButtonDisabled,
+            ]}
             onPress={handleSave}
             disabled={savingProfile || loadingProfile}
           >
@@ -221,7 +232,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
         </View>
-        <View style={styles.card}>
+        <View style={[styles.card, isTablet && styles.cardHalf]}>
 
           <View style={styles.rowBetween}>
             <View>
@@ -268,7 +279,11 @@ export default function ProfileScreen() {
             onChangeText={setConfirmPassword}
           />
           <TouchableOpacity
-            style={[styles.secondaryButton, changingPassword && styles.secondaryButtonDisabled]}
+            style={[
+              styles.secondaryButton,
+              isTablet && styles.actionButtonTablet,
+              changingPassword && styles.secondaryButtonDisabled,
+            ]}
             onPress={handleChangePassword}
             disabled={changingPassword}
           >
@@ -280,31 +295,35 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
         </View>
-        <View style={styles.card}>
+        </View>
+        <View style={[styles.card, isTablet && styles.cardFull]}>
 
           <Text style={styles.smallTitle}>Tips</Text>
 
-          <View style={styles.tipRow}>
-            <Feather name="shield" size={20} color="#4b5563" />
+          <View style={[styles.tipsGrid, isTablet && styles.tipsGridTablet]}>
+            <View style={styles.tipRow}>
+              <Feather name="shield" size={20} color="#4b5563" />
 
-            <Text style={styles.tipText}>
-              Use a unique password you don’t reuse elsewhere.
-            </Text>
-          </View>
+              <Text style={styles.tipText}>
+                Use a unique password you don’t reuse elsewhere.
+              </Text>
+            </View>
 
-          <View style={styles.tipRow}>
-            <Feather name="phone" size={20} color="#4b5563" />
+            <View style={styles.tipRow}>
+              <Feather name="phone" size={20} color="#4b5563" />
 
-            <Text style={styles.tipText}>
-              Keep your phone updated so buyers can reach you.
-            </Text>
+              <Text style={styles.tipText}>
+                Keep your phone updated so buyers can reach you.
+              </Text>
+            </View>
           </View>
 
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity style={[styles.logoutButton, isTablet && styles.logoutButtonTablet]} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
 
@@ -320,7 +339,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 20
+  },
+
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+
+  pageContent: {
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
+  },
+
+  pageContentTablet: {
+    maxWidth: 1100,
+  },
+
+  cardGrid: {
+    width: "100%",
+  },
+
+  cardGridTablet: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
 
   card: {
@@ -330,6 +373,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#e5e7eb"
+  },
+
+  cardHalf: {
+    width: "48.5%",
+    minWidth: 0,
+  },
+
+  cardFull: {
+    width: "100%",
   },
 
   rowBetween: {
@@ -420,6 +472,23 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827"
   },
+
+  actionButtonTablet: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  tipsGrid: {
+    width: "100%",
+  },
+
+  tipsGridTablet: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+
   tipRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -461,6 +530,12 @@ borderRadius: 16,
 padding: 16,
 alignItems: "center",
 justifyContent: "center",
+},
+
+logoutButtonTablet: {
+alignSelf: "flex-start",
+minWidth: 220,
+paddingHorizontal: 28,
 },
 
 logoutButtonText: {

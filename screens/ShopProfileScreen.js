@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, TextInput, RefreshControl, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, TextInput, RefreshControl, Linking, useWindowDimensions } from 'react-native';
 import { FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import Header from '../components/Header';
 import { shop, payouts } from '../services/api';
@@ -14,6 +14,8 @@ import ViewShot from "react-native-view-shot";
 import { useAuth } from '../contexts/AuthContext';
 
 const ShopProfileScreen = ({ navigation }) => {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const { logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState(null);
@@ -443,6 +445,7 @@ const ShopProfileScreen = ({ navigation }) => {
       <ScrollView 
         style={styles.container}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -452,7 +455,8 @@ const ShopProfileScreen = ({ navigation }) => {
           onNotificationPress={() => console.log('Notification pressed')}
           onProfilePress={() => navigation.navigate('userProfile')}
         />
-        <View style={styles.content}>
+        <View style={[styles.content, isTablet && styles.contentTablet]}>
+          <View style={[styles.pageContent, isTablet && styles.pageContentTablet]}>
           {/* Shop Logo Section */}
           {/* <View style={styles.logoSection}>
             <View style={styles.logoContainer}>
@@ -473,7 +477,7 @@ const ShopProfileScreen = ({ navigation }) => {
           </View> */}
 
           {/* Profile Information */}
-          <View style={styles.profileSection}>
+          <View style={[styles.profileSection, styles.sectionCard]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <Text>Unified shop identity</Text>
@@ -486,7 +490,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   {/* <Text style={styles.editButtonText}>Edit</Text> */}
                 </TouchableOpacity>
               ) : (
-                <View style={styles.actionButtons}>
+                <View style={[styles.actionButtons, isTablet && styles.actionButtonsTablet]}>
                   <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditingProfile(false)}>
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
@@ -837,7 +841,7 @@ const ShopProfileScreen = ({ navigation }) => {
           </View>
 
           {/* Payout Settings Section */}
-          <View style={styles.payoutSettingsSection}>
+          <View style={[styles.payoutSettingsSection, styles.sectionCard]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <Text style={styles.sectionTitle}>Payout settings</Text>
@@ -982,7 +986,8 @@ const ShopProfileScreen = ({ navigation }) => {
           </View>
 
           {/* Bio Link Section */}
-          <View style={styles.bioLinkSection}>
+          <View style={[styles.utilityGrid, isTablet && styles.utilityGridTablet]}>
+          <View style={[styles.bioLinkSection, isTablet && styles.utilitySectionTablet]}>
             <View style={styles.bioLinkCard}>
               <View style={styles.bioLinkHeader}>
                 <View style={styles.bioLinkContent}>
@@ -1023,7 +1028,7 @@ const ShopProfileScreen = ({ navigation }) => {
           </View>
 
           {/* QR Code Section */}
-          <View style={styles.qrCodeSection}>
+          <View style={[styles.qrCodeSection, isTablet && styles.utilitySectionTablet]}>
             {/* <Text style={styles.sectionTitle}>QR Code</Text> */}
             <View style={styles.qrCodeCard}>
               <View style={styles.qrCodeHeader}>
@@ -1064,9 +1069,10 @@ const ShopProfileScreen = ({ navigation }) => {
               </View>
             </View>
           </View>
+          </View>
 
           {/* Payout History Section */}
-          <View style={styles.payoutSection}>
+          <View style={[styles.payoutSection, styles.sectionCard]}>
             <View style={styles.payoutHeader}>
               <Text style={styles.sectionTitle}>Payout History</Text>
               <View style={styles.payoutSummary}>
@@ -1094,9 +1100,10 @@ const ShopProfileScreen = ({ navigation }) => {
             )}
             </View>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.logoutButton, isTablet && styles.logoutButtonTablet]} onPress={handleLogout}>
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1112,9 +1119,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  contentTablet: {
+    paddingHorizontal: 32,
+  },
+  pageContent: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
+  pageContentTablet: {
+    maxWidth: 1120,
   },
   loadingContainer: {
     flex: 1,
@@ -1173,6 +1194,15 @@ const styles = StyleSheet.create({
   profileSection: {
     paddingVertical: 20,
   },
+  sectionCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    marginBottom: 24,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1208,6 +1238,9 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 10,
+  },
+  actionButtonsTablet: {
+    marginLeft: 16,
   },
   cancelButton: {
     paddingHorizontal: 16,
@@ -1307,6 +1340,18 @@ const styles = StyleSheet.create({
   // Payout Section Styles
   payoutSection: {
     marginBottom: 30,
+  },
+  utilityGrid: {
+    width: '100%',
+  },
+  utilityGridTablet: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 20,
+  },
+  utilitySectionTablet: {
+    width: '48.5%',
   },
   payoutHeader: {
     flexDirection: 'row',
@@ -1479,6 +1524,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 12,
     padding: 15,
+    // height: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1549,6 +1595,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 12,
     padding: 15,
+    // height: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1630,6 +1677,11 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoutButtonTablet: {
+    alignSelf: 'flex-start',
+    minWidth: 220,
+    paddingHorizontal: 28,
   },
   logoutButtonText: {
     color: '#fff',
