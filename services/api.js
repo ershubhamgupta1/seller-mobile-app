@@ -161,9 +161,26 @@ const apiRequest = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      const rawErrorMessage = errorData.message || errorData.error || errorData.code || '';
+      const normalizedErrorMessage = String(rawErrorMessage).toLowerCase();
+      const isExpectedAuthFailure =
+        normalizedErrorMessage.includes('invalid_credentials') ||
+        normalizedErrorMessage.includes('invalid credential') ||
+        normalizedErrorMessage.includes('wrong password') ||
+        normalizedErrorMessage.includes('user not found') ||
+        normalizedErrorMessage.includes('invalid password') ||
+        normalizedErrorMessage.includes('invalid email') ||
+        (response.status === 401 && !token);
+      const errorMessage =
+        isExpectedAuthFailure
+          ? 'Incorrect email or password'
+          : rawErrorMessage ||
+        (response.status === 401 && !token
+          ? 'Invalid email or password'
+          : `HTTP error! status: ${response.status}`);
       
       // Handle authentication errors (401 Unauthorized)
-      if (response.status === 401) {
+      if (response.status === 401 && token) {
         await removeAuthToken();
         // Navigate to LoginScreen
         safeRedirectToLogin();
@@ -171,23 +188,37 @@ const apiRequest = async (endpoint, options = {}) => {
         return;
       }
       
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      const requestError = new Error(errorMessage);
+      requestError.suppressLogging = isExpectedAuthFailure;
+      throw requestError;
+    }
+
+    if (response.status === 204) {
+      return null;
     }
 
     // Handle different response types
-    const contentType = response.headers.get('content-type');
+    const contentType = response.headers.get('content-type') || '';
+    const contentLength = response.headers.get('content-length');
+
+    if (contentLength === '0' || !contentType) {
+      const textResponse = await response.text().catch(() => '');
+      return textResponse ? textResponse : null;
+    }
     
-    if (contentType && contentType.includes('svg')) {
+    if (contentType.includes('svg')) {
         return response.text();
     } else {
       // For JSON responses, parse as JSON
       return await response.json();
     }
   } catch (error) {
-    console.error('API request error:', error);
+    if (!error?.suppressLogging) {
+      console.error('API request error:', error);
+    }
     
     // Handle network errors or other auth-related issues
-    if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+    if (token && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
       await removeAuthToken();
       // Navigate to LoginScreen
       safeRedirectToLogin();
@@ -216,7 +247,7 @@ export const businessAuth = {
       body: JSON.stringify({ email, password }),
     });
     
-    if (response.access_token) {
+    if (response?.access_token) {
       await setAuthToken(response.access_token);
     }
     
@@ -229,6 +260,11 @@ export const businessAuth = {
     apiRequest('/api/business/auth/me', {
       method: 'PUT',
       body: JSON.stringify(profileData),
+    }),
+
+  deleteMe: () =>
+    apiRequest('/api/business/auth/me', {
+      method: 'DELETE',
     }),
 
   changePassword: ({ current_password, new_password }) =>
@@ -338,6 +374,12 @@ export const uploads = {
     const formData = new FormData();
     formData.append('file', fileAsset);
     return uploadRequest('/api/business/uploads/inventory-image', formData);
+  },
+
+  uploadShopPhoto: (fileAsset) => {
+    const formData = new FormData();
+    formData.append('file', fileAsset);
+    return uploadRequest('/api/business/uploads/shop-photo', formData);
   },
 };
 

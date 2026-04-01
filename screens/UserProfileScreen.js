@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -141,6 +142,35 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             await logout();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    if (deletingAccount) return;
+
+    Alert.alert(
+      "Delete account",
+      "This will permanently delete your shop, posts, and account data. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingAccount(true);
+              await businessAuth.deleteMe();
+              await logout();
+              Alert.alert("Account deleted", "Your account has been deleted successfully.");
+            } catch (e) {
+              console.error('Error deleting account:', e);
+              Alert.alert('Error', e?.message || 'Failed to delete account');
+            } finally {
+              setDeletingAccount(false);
+            }
           },
         },
       ]
@@ -323,6 +353,36 @@ export default function ProfileScreen() {
         <TouchableOpacity style={[styles.logoutButton, isTablet && styles.logoutButtonTablet]} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
+
+        <View style={styles.dangerZoneCard}>
+          <View style={styles.dangerZoneHeader}>
+            <View style={styles.dangerZoneTitleWrap}>
+              <Text style={styles.dangerZoneEyebrow}>Danger zone</Text>
+              <Text style={styles.dangerZoneTitle}>Delete account</Text>
+              <Text style={styles.dangerZoneDescription}>
+                This permanently deletes your shop, posts, and account data.
+              </Text>
+            </View>
+
+            <Feather name="alert-triangle" size={22} color="#ef4444" />
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.deleteAccountButton,
+              isTablet && styles.deleteAccountButtonTablet,
+              deletingAccount && styles.deleteAccountButtonDisabled,
+            ]}
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            {deletingAccount ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.deleteAccountButtonText}>Delete account</Text>
+            )}
+          </TouchableOpacity>
+        </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -518,29 +578,99 @@ const styles = StyleSheet.create({
     padding: 5
   },
 
-headerTitle: {
-fontSize: 18,
-fontWeight: "600",
-},
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
 
-logoutButton: {
-marginBottom: 40,
-backgroundColor: "#f59e0b",
-borderRadius: 16,
-padding: 16,
-alignItems: "center",
-justifyContent: "center",
-},
+  logoutButton: {
+    marginBottom: 40,
+    backgroundColor: "#f59e0b",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-logoutButtonTablet: {
-alignSelf: "flex-start",
-minWidth: 220,
-paddingHorizontal: 28,
-},
+  logoutButtonTablet: {
+    alignSelf: "flex-start",
+    minWidth: 220,
+    paddingHorizontal: 28,
+  },
 
-logoutButtonText: {
-color: "#fff",
-fontSize: 16,
-fontWeight: "600",
-},
+  logoutButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  dangerZoneCard: {
+    backgroundColor: "#fff7f7",
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    shadowColor: "#fca5a5",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    elevation: 2,
+  },
+
+  dangerZoneHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+  },
+
+  dangerZoneTitleWrap: {
+    flex: 1,
+  },
+
+  dangerZoneEyebrow: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#dc2626",
+    marginBottom: 8,
+  },
+
+  dangerZoneTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#991b1b",
+    marginBottom: 8,
+  },
+
+  dangerZoneDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#b91c1c",
+  },
+
+  deleteAccountButton: {
+    marginTop: 24,
+    alignSelf: "flex-start",
+    backgroundColor: "#ef2d2d",
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  deleteAccountButtonDisabled: {
+    opacity: 0.7,
+  },
+
+  deleteAccountButtonTablet: {
+    minWidth: 220,
+  },
+
+  deleteAccountButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });

@@ -169,7 +169,7 @@ export default function VerificationScreen() {
       type: getMimeTypeFromUri(resolvedFileName),
     };
 
-    const response = await uploads.uploadInventoryImage(fileAsset);
+    const response = await uploads.uploadShopPhoto(fileAsset);
     const publicUrl = response?.url ? response.url : null;
 
     if (!publicUrl) {
@@ -472,14 +472,13 @@ export default function VerificationScreen() {
                   {showInlineEditor && itemType === 'shopPhotos' && (
                     <View style={styles.itemForm}>
                       <View style={styles.shopPhotoCard}>
-                        <View style={styles.shopPhotoHeader}>
                           <View style={styles.inlinePhotoCopy}>
                             <Text style={styles.shopPhotoTitle}>Physical shop photos</Text>
                             <Text style={styles.shopPhotoDesc}>Pick from your device or paste photo URLs.</Text>
                           </View>
-
+                        <View style={styles.shopPhotoHeader}>
                           <View style={styles.shopPhotoActions}>
-                            <TouchableOpacity
+                            {/* <TouchableOpacity
                               style={styles.uploadActionBtn}
                               onPress={pickAndUploadShopPhotos}
                               disabled={uploadingShopPhotos || savingDraft || submitting}
@@ -492,9 +491,13 @@ export default function VerificationScreen() {
                                   <Text style={styles.uploadActionBtnText}>Upload</Text>
                                 </>
                               )}
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
 
-                            <TouchableOpacity style={styles.uploadActionBtn} onPress={addShopPhotoUrl}>
+                            <TouchableOpacity
+                              style={styles.uploadActionBtn}
+                              onPress={addShopPhotoUrl}
+                              disabled={uploadingShopPhotos || savingDraft || submitting}
+                            >
                               <Text style={styles.uploadActionBtnText}>Add URL</Text>
                             </TouchableOpacity>
                           </View>
@@ -514,24 +517,24 @@ export default function VerificationScreen() {
                             )}
                           </TouchableOpacity>
 
-                          {shopPhotoUrls
-                            .filter((value) => (value || '').trim() !== '')
-                            .map((value, idx) => {
-                              return (
-                                <View key={`${value}-${idx}`} style={styles.shopPhotoThumbTile}>
-                                  <Image source={{ uri: getAbsoluteImageUrl(value) }} style={styles.shopPhotoThumbImage} />
-                                  <TouchableOpacity
-                                    style={styles.shopPhotoThumbRemove}
-                                    onPress={() => {
-                                      const urlIndex = shopPhotoUrls.findIndex((currentValue, currentIndex) => currentValue === value && currentIndex >= 0);
-                                      if (urlIndex >= 0) removeShopPhotoUrl(urlIndex);
-                                    }}
-                                  >
-                                    <Feather name="x" size={14} color="#fff" />
-                                  </TouchableOpacity>
-                                </View>
-                              );
-                            })}
+                          {shopPhotoUrls.map((value, idx) => {
+                            if ((value || '').trim() === '') {
+                              return null;
+                            }
+
+                            return (
+                              <View key={`${value}-${idx}`} style={styles.shopPhotoThumbTile}>
+                                <Image source={{ uri: getAbsoluteImageUrl(value) }} style={styles.shopPhotoThumbImage} />
+                                <TouchableOpacity
+                                  style={styles.shopPhotoThumbRemove}
+                                  onPress={() => removeShopPhotoUrl(idx)}
+                                  disabled={uploadingShopPhotos || savingDraft || submitting}
+                                >
+                                  <Feather name="x" size={14} color="#fff" />
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
                         </ScrollView>
 
                         {shopPhotoUrls.map((url, idx) => (
@@ -541,11 +544,16 @@ export default function VerificationScreen() {
                               style={styles.shopPhotoInput}
                               placeholderTextColor="#9ca3af"
                               value={url}
+                              editable={!(uploadingShopPhotos || savingDraft || submitting)}
                               onChangeText={(text) => updateShopPhotoUrl(idx, text)}
                             />
 
                             {shopPhotoUrls.length > 1 && (
-                              <TouchableOpacity style={styles.shopPhotoRemoveBtn} onPress={() => removeShopPhotoUrl(idx)}>
+                              <TouchableOpacity
+                                style={styles.shopPhotoRemoveBtn}
+                                onPress={() => removeShopPhotoUrl(idx)}
+                                disabled={uploadingShopPhotos || savingDraft || submitting}
+                              >
                                 <Feather name="x" size={16} color="#666" />
                               </TouchableOpacity>
                             )}
@@ -871,6 +879,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: "#6b7280",
+    marginBottom: 8
   },
 
   shopPhotoActions: {

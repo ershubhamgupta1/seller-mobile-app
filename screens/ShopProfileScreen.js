@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, TextInput, RefreshControl, Linking, useWindowDimensions } from 'react-native';
 import { FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import Header from '../components/Header';
-import { shop, payouts } from '../services/api';
+import { shop, payouts, uploads, API_BASE } from '../services/api';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
@@ -12,6 +12,28 @@ import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from "react-native-safe-area-context";
 import ViewShot from "react-native-view-shot";
 import { useAuth } from '../contexts/AuthContext';
+
+const getMimeTypeFromUri = (value = '') => {
+  const sanitizedValue = value.split('?')[0];
+  const ext = (sanitizedValue.split('.').pop() || 'jpg').toLowerCase();
+
+  if (['png'].includes(ext)) return 'image/png';
+  if (['webp'].includes(ext)) return 'image/webp';
+  if (['heic', 'heif'].includes(ext)) return 'image/heic';
+
+  return 'image/jpeg';
+};
+
+const ensureTrailingImageInput = (values = []) => {
+  const nonEmptyValues = (values || []).filter((value) => (value || '').trim() !== '');
+  return nonEmptyValues.length > 0 ? [...nonEmptyValues, ''] : [''];
+};
+
+const getAbsoluteImageUrl = (value) => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value) || /^(file|content):\/\//i.test(value) || /^data:/i.test(value)) return value;
+  return `${API_BASE}${value.startsWith('/') ? value : `/${value}`}`;
+};
 
 const ShopProfileScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
@@ -24,6 +46,7 @@ const ShopProfileScreen = ({ navigation }) => {
   const [payoutData, setPayoutData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [qrImageUrl, setQrImageUrl] = useState(null);
+  const [uploadingShopPhotos, setUploadingShopPhotos] = useState(false);
   const viewShotRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -48,6 +71,8 @@ const ShopProfileScreen = ({ navigation }) => {
     payout_ifsc_code: '',
     payout_account_number: '',
     payout_upi_id: '',
+    ships_internationally: false,
+    shop_photo_urls: [''],
     accountHolderName: '',
     payoutFrequency: 'Weekly',
     minPayoutAmount: ''
@@ -142,6 +167,7 @@ const ShopProfileScreen = ({ navigation }) => {
       qrCode = qrCode?.replace(/svg:/g, "")
       .replace(/xmlns:svg="[^"]*"/g, "");
 
+      console.log('shop data=======', response)
       setQrImageUrl(qrCode)
       // Extract shop data from nested response
       const shopResponse = response?.shop || {};
@@ -167,7 +193,13 @@ const ShopProfileScreen = ({ navigation }) => {
         story: shopResponse?.story || '',
         payout_ifsc_code: shopResponse?.payout_ifsc_code || '',
         payout_account_number: shopResponse?.payout_account_number || '',
-        payout_upi_id: shopResponse?.payout_upi_id || ''
+        payout_upi_id: shopResponse?.payout_upi_id || '',
+        ships_internationally: Boolean(shopResponse?.ships_internationally),
+        shop_photo_urls: ensureTrailingImageInput(
+          Array.isArray(shopResponse?.shop_photo_urls)
+            ? shopResponse.shop_photo_urls.filter(Boolean)
+            : []
+        )
       });
       
     } catch (error) {
@@ -196,9 +228,119 @@ const ShopProfileScreen = ({ navigation }) => {
     }
   };
 
+  const updateShopPhotoUrl = (index, value) => {
+    setFormData((prev) => {
+      const next = [...(prev.shop_photo_urls || [''])];
+      next[index] = value;
+
+      return {
+        ...prev,
+        shop_photo_urls: next,
+      };
+    });
+  };
+
+  const addShopPhotoUrl = () => {
+    setFormData((prev) => ({
+      ...prev,
+      shop_photo_urls: [...(prev.shop_photo_urls || ['']), ''],
+    }));
+  };
+
+  const removeShopPhotoUrl = (index) => {
+    setFormData((prev) => {
+      const next = (prev.shop_photo_urls || []).filter((_, currentIndex) => currentIndex !== index);
+
+      return {
+        ...prev,
+        shop_photo_urls: next.length > 0 ? ensureTrailingImageInput(next) : [''],
+      };
+    });
+  };
+
+  const uploadShopPhotoFromUri = async (uri, fileName) => {
+    const resolvedFileName = fileName || uri.split('/').pop()?.split('?')[0] || `shop-photo-${Date.now()}.jpg`;
+    const fileAsset = {
+      uri,
+      name: resolvedFileName,
+      type: getMimeTypeFromUri(resolvedFileName),
+    };
+
+    const response = await uploads.uploadShopPhoto(fileAsset);
+    const publicUrl = response?.url ? response.url : null;
+
+    if (!publicUrl) {
+      throw new Error('Upload succeeded but no image URL was returned');
+    }
+
+    return getAbsoluteImageUrl(publicUrl);
+  };
+
+  const pickAndUploadShopPhotos = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', 'Gallery permission is required to pick images');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      setUploadingShopPhotos(true);
+
+      const assets = result.assets || [];
+      const uploadedUrls = [];
+
+      for (const asset of assets) {
+        const uri = asset.uri;
+
+        if (!uri) {
+          continue;
+        }
+
+        const uploadedUrl = await uploadShopPhotoFromUri(
+          uri,
+          asset.fileName || uri.split('/').pop() || `shop-photo-${Date.now()}.jpg`
+        );
+        uploadedUrls.push(uploadedUrl);
+      }
+
+      if (uploadedUrls.length === 0) {
+        Alert.alert('Error', 'No images were uploaded');
+        return;
+      }
+
+      setFormData((prev) => {
+        const existing = (prev.shop_photo_urls || []).filter((value) => (value || '').trim() !== '');
+
+        return {
+          ...prev,
+          shop_photo_urls: [...existing, ...uploadedUrls, ''],
+        };
+      });
+    } catch (error) {
+      console.error('Error picking/uploading shop photos:', error);
+      Alert.alert('Error', 'Failed to upload shop photos');
+    } finally {
+      setUploadingShopPhotos(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
+      const cleanedShopPhotoUrls = (formData.shop_photo_urls || [])
+        .map((value) => (value || '').trim())
+        .filter(Boolean);
       // API call to update shop profile data only
       const profileData = {
         name: formData.name,
@@ -218,11 +360,17 @@ const ShopProfileScreen = ({ navigation }) => {
         claimed_lifetime_sales: Number(formData.claimed_lifetime_sales),
         tagline: formData.tagline,
         known_for: formData.known_for,
-        story: formData.story
+        story: formData.story,
+        ships_internationally: !!formData.ships_internationally,
+        // shop_photo_urls: cleanedShopPhotoUrls
       };
       await shop.createOrUpdateShop(profileData);
       
       setShopData({ ...shopData, ...profileData });
+      setFormData((prev) => ({
+        ...prev,
+        shop_photo_urls: ensureTrailingImageInput(cleanedShopPhotoUrls),
+      }));
       setIsEditingProfile(false);
       Alert.alert('Success', 'Shop profile updated successfully');
     } catch (error) {
@@ -294,11 +442,17 @@ const ShopProfileScreen = ({ navigation }) => {
       payout_account_number: shopData?.payout_account_number || '',
       payout_ifsc_code: shopData?.ifsc_code || '',
       payout_upi_id: shopData?.payout_upi_id || '',
+      ships_internationally: Boolean(shopData?.ships_internationally),
+      shop_photo_urls: ensureTrailingImageInput(
+        Array.isArray(shopData?.shop_photo_urls)
+          ? shopData.shop_photo_urls.filter(Boolean)
+          : []
+      ),
       accountHolderName: shopData?.account_holder_name || '',
       payoutFrequency: shopData?.payout_frequency || 'Weekly',
       minPayoutAmount: shopData?.min_payout_amount || ''
     });
-    setIsEditing(false);
+    setIsEditingProfile(false);
   };
 
   const formatDate = (dateString) => {
@@ -491,7 +645,7 @@ const ShopProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               ) : (
                 <View style={[styles.actionButtons, isTablet && styles.actionButtonsTablet]}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditingProfile(false)}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
@@ -502,6 +656,99 @@ const ShopProfileScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.infoContainer}>
+              <View style={styles.shopPhotoCard}>
+                  <View style={styles.inlinePhotoCopy}>
+                    <Text style={styles.shopPhotoTitle}>Physical shop photos</Text>
+                    <Text style={styles.shopPhotoDesc}>Pick from your device or paste photo URLs.</Text>
+                  </View>
+                <View style={styles.shopPhotoHeader}>
+
+                  {isEditingProfile && (
+                    <View style={styles.shopPhotoActions}>
+                      {/* <TouchableOpacity
+                        style={styles.uploadActionBtn}
+                        onPress={pickAndUploadShopPhotos}
+                        disabled={uploadingShopPhotos}
+                      >
+                        {uploadingShopPhotos ? (
+                          <ActivityIndicator size="small" color="#111827" />
+                        ) : (
+                          <>
+                            <FontAwesome5 name="plus" size={14} color="#111827" />
+                            <Text style={styles.uploadActionBtnText}>Upload</Text>
+                          </>
+                        )}
+                      </TouchableOpacity> */}
+
+                      <TouchableOpacity style={styles.uploadActionBtn} onPress={addShopPhotoUrl}>
+                        <Text style={styles.uploadActionBtnText}>Add URL</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopPhotoThumbRow}>
+                  {isEditingProfile && (
+                    <TouchableOpacity
+                      style={styles.shopPhotoAddTile}
+                      onPress={pickAndUploadShopPhotos}
+                      disabled={uploadingShopPhotos}
+                      activeOpacity={0.9}
+                    >
+                      {uploadingShopPhotos ? (
+                        <ActivityIndicator size="small" color="#4b5563" />
+                      ) : (
+                        <FontAwesome5 name="plus" size={26} color="#4b5563" />
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {formData.shop_photo_urls.map((value, idx) => {
+                    if ((value || '').trim() === '') {
+                      return null;
+                    }
+
+                    return (
+                      <View key={`${value}-${idx}`} style={styles.shopPhotoThumbTile}>
+                        <Image source={{ uri: getAbsoluteImageUrl(value) }} style={styles.shopPhotoThumbImage} />
+                        {isEditingProfile && (
+                          <TouchableOpacity
+                            style={styles.shopPhotoThumbRemove}
+                            onPress={() => removeShopPhotoUrl(idx)}
+                          >
+                            <FontAwesome name="close" size={12} color="#fff" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+
+                {isEditingProfile ? (
+                  formData.shop_photo_urls.map((url, idx) => (
+                    <View key={idx} style={styles.shopPhotoInputRow}>
+                      <TextInput
+                        placeholder="https://..."
+                        style={styles.shopPhotoInput}
+                        placeholderTextColor="#9ca3af"
+                        value={url}
+                        onChangeText={(text) => updateShopPhotoUrl(idx, text)}
+                      />
+
+                      {formData.shop_photo_urls.length > 1 && (
+                        <TouchableOpacity style={styles.shopPhotoRemoveBtn} onPress={() => removeShopPhotoUrl(idx)}>
+                          <FontAwesome name="close" size={14} color="#666" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))
+                ) : (
+                  formData.shop_photo_urls.filter((value) => (value || '').trim() !== '').length === 0 ? (
+                    <Text style={styles.emptyPhotoText}>No shop photos added</Text>
+                  ) : null
+                )}
+              </View>
+
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
                   <FontAwesome5 name="store" size={16} color="#666" />
@@ -691,6 +938,80 @@ const ShopProfileScreen = ({ navigation }) => {
                     />
                   ) : (
                     <Text style={styles.infoValue}>{formData.city || 'Not specified'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="globe" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.segmentedLabel}>Ships internationally?</Text>
+                  {isEditingProfile ? (
+                    <View style={styles.segmentedControl}>
+                      <TouchableOpacity
+                        style={[
+                          styles.segmentOption,
+                          formData.ships_internationally && styles.segmentOptionActive,
+                        ]}
+                        onPress={() => setFormData({
+                          ...formData,
+                          ships_internationally: true,
+                        })}
+                        activeOpacity={0.85}
+                      >
+                        <View
+                          style={[
+                            styles.segmentRadio,
+                            formData.ships_internationally && styles.segmentRadioActive,
+                          ]}
+                        >
+                          {formData.ships_internationally && <View style={styles.segmentRadioDot} />}
+                        </View>
+                        <Text
+                          style={[
+                            styles.segmentText,
+                            formData.ships_internationally && styles.segmentTextActive,
+                          ]}
+                        >
+                          Yes
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.segmentOption,
+                          !formData.ships_internationally && styles.segmentOptionActive,
+                        ]}
+                        onPress={() => setFormData({
+                          ...formData,
+                          ships_internationally: false,
+                        })}
+                        activeOpacity={0.85}
+                      >
+                        <View
+                          style={[
+                            styles.segmentRadio,
+                            !formData.ships_internationally && styles.segmentRadioActive,
+                          ]}
+                        >
+                          {!formData.ships_internationally && <View style={styles.segmentRadioDot} />}
+                        </View>
+                        <Text
+                          style={[
+                            styles.segmentText,
+                            !formData.ships_internationally && styles.segmentTextActive,
+                          ]}
+                        >
+                          No
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Text style={styles.infoValue}>
+                      {formData.ships_internationally ? 'Yes' : 'No'}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -1299,6 +1620,185 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
     color: '#000',
+  },
+  shopPhotoCard: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 24,
+    padding: 18,
+  },
+  shopPhotoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  inlinePhotoCopy: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  shopPhotoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  shopPhotoDesc: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 21,
+    color: '#475569',
+    marginBottom: 8
+  },
+  shopPhotoActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  uploadActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 48,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  uploadActionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  shopPhotoThumbRow: {
+    marginTop: 18,
+  },
+  shopPhotoAddTile: {
+    width: 136,
+    height: 136,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  shopPhotoThumbTile: {
+    width: 136,
+    height: 136,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginRight: 12,
+  },
+  shopPhotoThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  shopPhotoThumbRemove: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shopPhotoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  shopPhotoInput: {
+    flex: 1,
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#fff',
+  },
+  shopPhotoRemoveBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    backgroundColor: '#f3f4f6',
+  },
+  emptyPhotoText: {
+    marginTop: 14,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  segmentedLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#475569',
+    marginBottom: 12,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 26,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  segmentOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  segmentOptionActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  segmentRadio: {
+    width: 12,
+    height: 12,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    marginRight: 8,
+  },
+  segmentRadioActive: {
+    borderColor: '#f59e0b',
+  },
+  segmentRadioDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: '#f59e0b',
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0f172a',
+  },
+  segmentTextActive: {
+    color: '#0f172a',
   },
   textArea: {
     height: 80,

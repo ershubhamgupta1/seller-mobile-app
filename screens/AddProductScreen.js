@@ -329,6 +329,7 @@ export default function AddPostScreen({ route }) {
   const [material, setMaterial] = useState(post?.material || "");
   const [price, setPrice] = useState(post?.price?.toString() || "");
   const [delivery, setDelivery] = useState(post?.attributes?.delivery_fee_amount?.toString() || "");
+  const [internationalDelivery, setInternationalDelivery] = useState(post?.attributes?.international_delivery_fee_amount?.toString() || "");
   const [color, setColor] = useState(post?.attributes?.color || "");
   const [size, setSize] = useState(post?.attributes?.size || "");
   const [caption, setCaption] = useState(post?.caption || sharedDraft?.caption || "");
@@ -342,6 +343,7 @@ export default function AddPostScreen({ route }) {
     instagram: "",
     facebook: "",
     pinterest: "",
+    shipsInternationally: false,
   });
   const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
 
@@ -373,10 +375,6 @@ export default function AddPostScreen({ route }) {
   }, [isEditMode, sharedDraft]);
 
   useEffect(() => {
-    if (isEditMode) {
-      return;
-    }
-
     let isMounted = true;
 
     const fetchShopSocialHandles = async () => {
@@ -392,6 +390,7 @@ export default function AddPostScreen({ route }) {
           instagram: normalizeCsvValue(shopResponse.instagram_handle ?? ''),
           facebook: normalizeCsvValue(shopResponse.facebook_handle ?? ''),
           pinterest: normalizeCsvValue(shopResponse.pinterest_handle ?? ''),
+          shipsInternationally: Boolean(shopResponse.ships_internationally),
         });
       } catch (error) {
         console.error("Error fetching shop social handles:", error);
@@ -403,7 +402,7 @@ export default function AddPostScreen({ route }) {
     return () => {
       isMounted = false;
     };
-  }, [isEditMode]);
+  }, []);
 
   const uploadImageFromUri = async (uri, fileName) => {
     const resolvedFileName = fileName || uri.split("/").pop()?.split("?")[0] || `image-${Date.now()}.jpg`;
@@ -657,6 +656,10 @@ export default function AddPostScreen({ route }) {
         material: material || "",
       };
 
+      if (shopSocialHandles.shipsInternationally) {
+        postData.attributes.international_delivery_fee_amount = internationalDelivery ? parseFloat(internationalDelivery) : 0;
+      }
+
       let response;
       if (isEditMode) {
         response = await inventory.updatePost(post.id, postData);
@@ -685,6 +688,7 @@ export default function AddPostScreen({ route }) {
         setMaterial("");
         setPrice("");
         setDelivery("");
+        setInternationalDelivery("");
         setColor("");
         setSize("");
         setCaption("");
@@ -1286,6 +1290,24 @@ export default function AddPostScreen({ route }) {
               value={delivery}
               onChangeText={setDelivery}
             />
+
+            {shopSocialHandles.shipsInternationally && (
+              <>
+                <Text style={styles.label}>International delivery fee (₹)</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={internationalDelivery}
+                  onChangeText={setInternationalDelivery}
+                />
+
+                <Text style={styles.helperText}>
+                  This is shown because international delivery is enabled in Shop Profile.
+                </Text>
+              </>
+            )}
 
 
             {/* Color */}

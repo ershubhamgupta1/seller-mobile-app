@@ -54,6 +54,11 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await businessAuth.login(email, password);
+
+      if (!response) {
+        throw new Error('Invalid email or password');
+      }
+
       setUser(response.user || response);
       setIsAuthenticated(true);
       return response;
