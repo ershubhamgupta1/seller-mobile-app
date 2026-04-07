@@ -61,20 +61,6 @@ const base = StyleSheet.create({
 
 /* ===================== COMPONENTS ===================== */
 
-const BannerCard = () => (
-  <View style={base.card}>
-    <Text style={styles.smallLabel}>Business Console</Text>
-    <Text style={styles.bannerTitle}>
-      Build a verified, video-first storefront
-    </Text>
-
-    <TouchableOpacity style={styles.qrBtn}>
-      <Ionicons name="qr-code-outline" size={18} />
-      <Text>QR</Text>
-    </TouchableOpacity>
-  </View>
-);
-
 const UpdateHeaderCard = () => (
   <View style={base.card}>
     <View style={base.rowBetween}>

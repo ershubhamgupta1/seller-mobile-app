@@ -140,7 +140,9 @@ const uploadRequest = async (endpoint, formData) => {
 
 // Generic API request function
 const apiRequest = async (endpoint, options = {}) => {
+  
   const url = `${API_BASE}${endpoint}`;
+  console.log('url==========', url);
   const token = await getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -157,8 +159,10 @@ const apiRequest = async (endpoint, options = {}) => {
   };
 
   try {
-    const response = await fetch(url, config);
+    console.log('config========', config)
 
+    const response = await fetch(url, config);
+    console.log('response========', response)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const rawErrorMessage = errorData.message || errorData.error || errorData.code || '';
@@ -285,6 +289,12 @@ export const shop = {
     }),
 
   getQRCode: () => apiRequest('/api/business/shops/me/qr'),
+
+  searchShops: (query) =>
+    apiRequest(`/api/business/shops/search?q=${encodeURIComponent(String(query || ''))}`),
+
+  getShopPosts: (shopId, page = 1, pageSize = 20) =>
+    apiRequest(`/api/business/shops/${shopId}/posts?page=${page}&page_size=${pageSize}`),
 };
 
 // Inventory Posts
@@ -363,6 +373,26 @@ export const feed = {
     apiRequest(`/api/business/feed?limit=${limit}`),
 };
 
+// Collaboration
+export const collaboration = {
+  getOutgoingRequests: () => apiRequest('/api/business/collaboration/requests/outgoing'),
+  getIncomingRequests: () => apiRequest('/api/business/collaboration/requests/incoming'),
+  getRequestDetail: (requestId) => apiRequest(`/api/business/collaboration/requests/${requestId}`),
+  searchBusinessShops: (query) =>
+    apiRequest(
+      `/api/business/collaboration/business-shops?q=${encodeURIComponent(String(query || ''))}`
+    ),
+  getBusinessShopPosts: (shopId, page = 1, pageSize = 20) =>
+    apiRequest(
+      `/api/business/collaboration/business-shops/${shopId}/posts?page=${page}&page_size=${pageSize}`
+    ),
+  saveCollabPost: (requestId, collabPostData) =>
+     apiRequest(`/api/business/collaboration/requests/${requestId}/collab_post`, {
+       method: 'POST',
+       body: JSON.stringify(collabPostData),
+     }),
+};
+
 // Payouts
 export const payouts = {
   getPayouts: () => apiRequest('/api/business/payouts/me'),
@@ -393,6 +423,7 @@ export default {
   analytics,
   orders,
   feed,
+  collaboration,
   payouts,
   uploads,
   setAuthToken,

@@ -381,7 +381,7 @@ export default function AddPostScreen({ route }) {
       try {
         const response = await shop.getMyShop();
         const shopResponse = response?.shop || {};
-        console.log('shopResponse============', shopResponse);
+        // console.log('shopResponse============', shopResponse);
         if (!isMounted) {
           return;
         }

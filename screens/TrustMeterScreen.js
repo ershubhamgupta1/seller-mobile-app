@@ -6,12 +6,13 @@ import { TextInput } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { API_BASE, verification, uploads } from '../services/api';
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from '../contexts/AuthContext';
 
 const getVerificationItemType = (title = "") => {
   const normalizedTitle = title.toLowerCase();
 
   if (normalizedTitle.includes("gst")) return "gst";
-  if (normalizedTitle.includes("social proof")) return "socialProof";
+  if (normalizedTitle.includes("social proof") || normalizedTitle.includes("social profile") || normalizedTitle.includes("profile url")) return "socialProof";
   if (normalizedTitle.includes("follower")) return "followers";
   if (normalizedTitle.includes("shop photo") || normalizedTitle.includes("physical shop")) return "shopPhotos";
 
@@ -42,6 +43,53 @@ const getAbsoluteImageUrl = (value) => {
 
 export default function VerificationScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
+
+  const resolveAccountType = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const accountTypeRaw = u?.account_type;
+    if (typeof accountTypeRaw === 'string') {
+      const normalized = accountTypeRaw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+    if (typeof raw === 'string') {
+      const normalized = raw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    if (u?.is_influencer === true) return 'influencer';
+    if (u?.is_business === true) return 'business';
+
+    return 'business';
+  };
+
+  const isInfluencer = resolveAccountType(user) === 'influencer';
+
+  const getEffectiveVerificationItemType = (title = "") => {
+    const normalizedTitle = (title || "").toLowerCase();
+
+    if (isInfluencer) {
+      if (
+        normalizedTitle.includes('aadhaar') ||
+        normalizedTitle.includes('aadhar') ||
+        normalizedTitle.includes('government id')
+      ) {
+        return 'govId';
+      }
+      if (normalizedTitle.includes('face')) return 'facePhotos';
+      if (normalizedTitle.includes('social proof') || normalizedTitle.includes('social profile') || normalizedTitle.includes('profile url')) return 'socialProof';
+      if (normalizedTitle.includes('follower')) return 'followers';
+      if (normalizedTitle.includes('gst')) return 'govId';
+      if (normalizedTitle.includes('shop photo') || normalizedTitle.includes('physical shop')) return 'facePhotos';
+    }
+
+    return getVerificationItemType(title);
+  };
 
   const [verificationItems, setVerificationItems] = useState([
     // { title: "Verified status", points: 10, done: true },
@@ -328,7 +376,7 @@ export default function VerificationScreen() {
   }, [effectiveStatus]);
 
   const editableItemIndexes = verificationItems.reduce((indexes, item, index) => {
-    if (getVerificationItemType(item.title)) {
+    if (getEffectiveVerificationItemType(item.title)) {
       indexes.push(index);
     }
 
@@ -390,7 +438,7 @@ export default function VerificationScreen() {
             </View>
 
             {verificationItems.map((item, index) => {
-              const itemType = getVerificationItemType(item.title);
+              const itemType = getEffectiveVerificationItemType(item.title);
               const isEditableItem = shopStatus !== 'VERIFIED' && !!itemType;
               const showInlineEditor = isEditableItem && isEditingVerification;
               const showActionRow = showInlineEditor && index === lastEditableItemIndex;
@@ -432,6 +480,28 @@ export default function VerificationScreen() {
                       />
 
                       <Text style={styles.inlineInputLabel}>GST certificate URL</Text>
+                      <TextInput
+                        placeholder="https://..."
+                        style={styles.input}
+                        placeholderTextColor="#9ca3af"
+                        value={gstDocumentUrl}
+                        onChangeText={setGstDocumentUrl}
+                      />
+                    </View>
+                  )}
+
+                  {showInlineEditor && itemType === 'govId' && (
+                    <View style={styles.itemForm}>
+                      <Text style={styles.inlineInputLabel}>Aadhaar number</Text>
+                      <TextInput
+                        placeholder="Aadhaar number"
+                        style={styles.input}
+                        placeholderTextColor="#9ca3af"
+                        value={gstNumber}
+                        onChangeText={setGstNumber}
+                      />
+
+                      <Text style={styles.inlineInputLabel}>Aadhaar document URL</Text>
                       <TextInput
                         placeholder="https://..."
                         style={styles.input}
@@ -563,6 +633,85 @@ export default function VerificationScreen() {
                     </View>
                   )}
 
+                  {showInlineEditor && itemType === 'facePhotos' && (
+                    <View style={styles.itemForm}>
+                      <View style={styles.shopPhotoCard}>
+                          <View style={styles.inlinePhotoCopy}>
+                            <Text style={styles.shopPhotoTitle}>Face verification photos</Text>
+                            <Text style={styles.shopPhotoDesc}>Upload clear face photos for admin identity verification.</Text>
+                          </View>
+                        <View style={styles.shopPhotoHeader}>
+                          <View style={styles.shopPhotoActions}>
+                            <TouchableOpacity
+                              style={styles.uploadActionBtn}
+                              onPress={addShopPhotoUrl}
+                              disabled={uploadingShopPhotos || savingDraft || submitting}
+                            >
+                              <Text style={styles.uploadActionBtnText}>Add URL</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopPhotoThumbRow}>
+                          <TouchableOpacity
+                            style={styles.shopPhotoAddTile}
+                            onPress={pickAndUploadShopPhotos}
+                            disabled={uploadingShopPhotos || savingDraft || submitting}
+                            activeOpacity={0.9}
+                          >
+                            {uploadingShopPhotos ? (
+                              <ActivityIndicator size="small" color="#4b5563" />
+                            ) : (
+                              <Feather name="plus" size={28} color="#4b5563" />
+                            )}
+                          </TouchableOpacity>
+
+                          {shopPhotoUrls.map((value, idx) => {
+                            if ((value || '').trim() === '') {
+                              return null;
+                            }
+
+                            return (
+                              <View key={`${value}-${idx}`} style={styles.shopPhotoThumbTile}>
+                                <Image source={{ uri: getAbsoluteImageUrl(value) }} style={styles.shopPhotoThumbImage} />
+                                <TouchableOpacity
+                                  style={styles.shopPhotoThumbRemove}
+                                  onPress={() => removeShopPhotoUrl(idx)}
+                                  disabled={uploadingShopPhotos || savingDraft || submitting}
+                                >
+                                  <Feather name="x" size={14} color="#fff" />
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </ScrollView>
+
+                        {shopPhotoUrls.map((url, idx) => (
+                          <View key={idx} style={styles.shopPhotoInputRow}>
+                            <TextInput
+                              placeholder="https://..."
+                              style={styles.shopPhotoInput}
+                              placeholderTextColor="#9ca3af"
+                              value={url}
+                              editable={!(uploadingShopPhotos || savingDraft || submitting)}
+                              onChangeText={(text) => updateShopPhotoUrl(idx, text)}
+                            />
+
+                            {shopPhotoUrls.length > 1 && (
+                              <TouchableOpacity
+                                style={styles.shopPhotoRemoveBtn}
+                                onPress={() => removeShopPhotoUrl(idx)}
+                                disabled={uploadingShopPhotos || savingDraft || submitting}
+                              >
+                                <Feather name="x" size={16} color="#666" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
                   {showActionRow && (
                     <View style={styles.itemFormFooter}>
                       <View style={styles.actionRow}>
@@ -604,36 +753,73 @@ export default function VerificationScreen() {
         </View>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>What we verify</Text>
-          <View style={styles.verifyRow}>
-            <View style={styles.iconCircle}>
-              <Feather name="file-text" size={18} />
-            </View>
+          {isInfluencer ? (
+            <>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="file-text" size={18} />
+                </View>
 
-            <View>
-              <Text style={styles.verifyTitle}>GST</Text>
-              <Text style={styles.verifyDesc}>Business legitimacy</Text>
-            </View>
-          </View>
-          <View style={styles.verifyRow}>
-            <View style={styles.iconCircle}>
-              <Feather name="camera" size={18} />
-            </View>
+                <View>
+                  <Text style={styles.verifyTitle}>Government ID</Text>
+                  <Text style={styles.verifyDesc}>Identity match and legitimacy</Text>
+                </View>
+              </View>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="camera" size={18} />
+                </View>
 
-            <View>
-              <Text style={styles.verifyTitle}>Physical shop</Text>
-              <Text style={styles.verifyDesc}>Prevents fake sellers</Text>
-            </View>
-          </View>
-          <View style={styles.verifyRow}>
-            <View style={styles.iconCircle}>
-              <Feather name="users" size={18} />
-            </View>
+                <View>
+                  <Text style={styles.verifyTitle}>Face verification</Text>
+                  <Text style={styles.verifyDesc}>Prevents impersonation and fake creators</Text>
+                </View>
+              </View>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="users" size={18} />
+                </View>
 
-            <View>
-              <Text style={styles.verifyTitle}>Social proof</Text>
-              <Text style={styles.verifyDesc}>Followers, credibility</Text>
-            </View>
-          </View>
+                <View>
+                  <Text style={styles.verifyTitle}>Social proof</Text>
+                  <Text style={styles.verifyDesc}>Followers and profile authenticity</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="file-text" size={18} />
+                </View>
+
+                <View>
+                  <Text style={styles.verifyTitle}>GST</Text>
+                  <Text style={styles.verifyDesc}>Business legitimacy</Text>
+                </View>
+              </View>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="camera" size={18} />
+                </View>
+
+                <View>
+                  <Text style={styles.verifyTitle}>Physical shop</Text>
+                  <Text style={styles.verifyDesc}>Prevents fake sellers</Text>
+                </View>
+              </View>
+              <View style={styles.verifyRow}>
+                <View style={styles.iconCircle}>
+                  <Feather name="users" size={18} />
+                </View>
+
+                <View>
+                  <Text style={styles.verifyTitle}>Social proof</Text>
+                  <Text style={styles.verifyDesc}>Followers, credibility</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
         <View style={[styles.card, { marginBottom: 40 }]}>
           <Text style={styles.sectionTitle}>Note</Text>

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { orders } from "../services/api";
+import { useAuth } from '../contexts/AuthContext';
 
 /* ===================== DESIGN TOKENS ===================== */
 const COLORS = {
@@ -55,7 +56,7 @@ const base = StyleSheet.create({
   },
 
   value: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
     color: COLORS.textPrimary,
   },
@@ -76,9 +77,35 @@ export default function OrderDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { orderId } = route.params || {};
+  const { user } = useAuth();
   
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const resolveAccountType = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const accountTypeRaw = u?.account_type;
+    if (typeof accountTypeRaw === 'string') {
+      const normalized = accountTypeRaw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+    if (typeof raw === 'string') {
+      const normalized = raw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    if (u?.is_influencer === true) return 'influencer';
+    if (u?.is_business === true) return 'business';
+
+    return 'business';
+  };
+
+  const isInfluencer = resolveAccountType(user) === 'influencer';
 
   useEffect(() => {
     fetchOrderDetails();
@@ -108,12 +135,14 @@ export default function OrderDetailScreen() {
         </View>
 
         <View style={styles.actions}>
-          <View>
-            <TouchableOpacity style={styles.pill}>
-              <Ionicons name="document-text-outline" size={18} />
-              <Text style={styles.pillText}>Bill</Text>
-            </TouchableOpacity>
-          </View>
+          {!isInfluencer && (
+            <View>
+              <TouchableOpacity style={styles.pill}>
+                <Ionicons name="document-text-outline" size={18} />
+                <Text style={styles.pillText}>Bill</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View>
             <TouchableOpacity style={styles.pill} onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back" size={18} />
@@ -139,7 +168,14 @@ export default function OrderDetailScreen() {
           />
 
           <View style={styles.content}>
-            <Text style={styles.itemTitle}>{item?.post?.title || 'Product'}</Text>
+            <View style={styles.itemTitleRow}>
+              <Text style={styles.itemTitle}>{item?.post?.title || 'Product'}</Text>
+              {isInfluencer && (
+                <View style={styles.collabPill}>
+                  <Text style={styles.collabPillText}>Collab</Text>
+                </View>
+              )}
+            </View>
 
             <View style={base.rowBetween}>
               <View>
@@ -169,6 +205,17 @@ export default function OrderDetailScreen() {
     const [trackingUrl, setTrackingUrl] = useState(orderData?.fulfillment?.tracking_url || "");
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    if (isInfluencer) {
+      return (
+        <View style={base.card}>
+          <Text style={base.title}>Fulfillment</Text>
+          <Text style={styles.readOnlyFulfillmentText}>
+            Status is managed by the brand. You can track progress below.
+          </Text>
+        </View>
+      );
+    }
 
     const statusOptions = ["Created", "Packed", "Shipped", "Delivered", "Cancelled"];
 
@@ -290,6 +337,40 @@ export default function OrderDetailScreen() {
         <Text style={base.label}>Shop subtotal</Text>
         <Text style={base.value}>₹ {orderData?.shop_subtotal || '0'}</Text>
       </View>
+
+      {isInfluencer && (
+        <>
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Delivery</Text>
+            <Text style={base.value}>₹ {orderData?.delivery_fee || orderData?.delivery || '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Total paid</Text>
+            <Text style={base.value}>₹ {orderData?.total_paid || orderData?.total || '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Platform fee (10%)</Text>
+            <Text style={base.value}>₹ {orderData?.platform_fee || '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Influencer cut (15%)</Text>
+            <Text style={base.value}>₹ {orderData?.influencer_cut || '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Your earnings</Text>
+            <Text style={base.value}>₹ {orderData?.your_earnings || orderData?.influencer_cut || '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Customer paid (full order)</Text>
+            <Text style={base.value}>₹ {orderData?.customer_paid || orderData?.customer_paid_full_order || '0'}</Text>
+          </View>
+        </>
+      )}
 
       <View style={[base.rowBetween, { marginTop: 10 }]}>
         <Text style={base.label}>Order status</Text>
@@ -421,10 +502,38 @@ const styles = StyleSheet.create({
   },
 
   itemTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "700",
     marginBottom: 10,
     color: COLORS.textPrimary,
+  },
+
+  itemTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  collabPill: {
+    borderWidth: 1,
+    borderColor: "#c4b5fd",
+    backgroundColor: "#ede9fe",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
+  },
+
+  collabPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6d28d9",
+  },
+
+  readOnlyFulfillmentText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
 
   /* INPUT */

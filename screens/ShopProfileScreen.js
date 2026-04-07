@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, TextInput, RefreshControl, Linking, useWindowDimensions } from 'react-native';
 import { FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import Header from '../components/Header';
-import { shop, payouts, uploads, API_BASE } from '../services/api';
+import { shop, payouts, uploads, verification, API_BASE } from '../services/api';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
@@ -35,10 +35,37 @@ const getAbsoluteImageUrl = (value) => {
   return `${API_BASE}${value.startsWith('/') ? value : `/${value}`}`;
 };
 
+const resolveAccountType = (authUser) => {
+  const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+  const accountTypeRaw = u?.account_type;
+  if (typeof accountTypeRaw === 'string') {
+    const normalized = accountTypeRaw.toLowerCase();
+    if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+    if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+  }
+
+  const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+
+  if (typeof raw === 'string') {
+    const normalized = raw.toLowerCase();
+    if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+    if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+  }
+
+  if (u?.is_influencer === true) return 'influencer';
+  if (u?.is_business === true) return 'business';
+
+  return 'business';
+};
+
 const ShopProfileScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const accountType = resolveAccountType(user);
+  const isInfluencer = accountType === 'influencer';
+  const headerTitle = isInfluencer ? 'Influencer profile' : 'Shop Profile';
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -68,6 +95,13 @@ const ShopProfileScreen = ({ navigation }) => {
     known_for: '',
     story: '',
     storefrontStory: '',
+    wearing_size: '',
+    shoe_size: '',
+    height_cm: '',
+    weight_kg: '',
+    bust_cm: '',
+    waist_cm: '',
+    hip_cm: '',
     payout_ifsc_code: '',
     payout_account_number: '',
     payout_upi_id: '',
@@ -164,14 +198,33 @@ const ShopProfileScreen = ({ navigation }) => {
       setLoading(true);
       const response = await shop.getMyShop();
       let qrCode = await shop.getQRCode();
+      let verificationResponse = null;
+
+      try {
+        verificationResponse = await verification.getVerificationStatus();
+      } catch (verificationError) {
+        console.error('Error fetching verification data:', verificationError);
+      }
+
       qrCode = qrCode?.replace(/svg:/g, "")
       .replace(/xmlns:svg="[^"]*"/g, "");
 
-      console.log('shop data=======', response)
       setQrImageUrl(qrCode)
       // Extract shop data from nested response
       const shopResponse = response?.shop || {};
-      setShopData(shopResponse);
+      const verificationShopPhotoUrls = Array.isArray(verificationResponse?.submission?.shop_photo_urls)
+        ? verificationResponse.submission.shop_photo_urls.filter(Boolean)
+        : [];
+      const hydratedShopData = {
+        ...shopResponse,
+        shop_photo_urls: verificationShopPhotoUrls.length > 0
+          ? verificationShopPhotoUrls
+          : Array.isArray(shopResponse?.shop_photo_urls)
+            ? shopResponse.shop_photo_urls.filter(Boolean)
+            : [],
+      };
+
+      setShopData(hydratedShopData);
       setFormData({
         name: shopResponse?.name || '',
         email: shopResponse?.email || '',
@@ -191,15 +244,19 @@ const ShopProfileScreen = ({ navigation }) => {
         tagline: shopResponse?.tagline || '',
         known_for: shopResponse?.known_for || '',
         story: shopResponse?.story || '',
+        storefrontStory: shopResponse?.storefront_story || '',
+        wearing_size: shopResponse?.wearing_size ? String(shopResponse.wearing_size) : '',
+        shoe_size: shopResponse?.shoe_size ? String(shopResponse.shoe_size) : '',
+        height_cm: shopResponse?.height_cm ? String(shopResponse.height_cm) : '',
+        weight_kg: shopResponse?.weight_kg ? String(shopResponse.weight_kg) : '',
+        bust_cm: shopResponse?.bust_cm ? String(shopResponse.bust_cm) : '',
+        waist_cm: shopResponse?.waist_cm ? String(shopResponse.waist_cm) : '',
+        hip_cm: shopResponse?.hip_cm ? String(shopResponse.hip_cm) : '',
         payout_ifsc_code: shopResponse?.payout_ifsc_code || '',
         payout_account_number: shopResponse?.payout_account_number || '',
         payout_upi_id: shopResponse?.payout_upi_id || '',
         ships_internationally: Boolean(shopResponse?.ships_internationally),
-        shop_photo_urls: ensureTrailingImageInput(
-          Array.isArray(shopResponse?.shop_photo_urls)
-            ? shopResponse.shop_photo_urls.filter(Boolean)
-            : []
-        )
+        shop_photo_urls: ensureTrailingImageInput(hydratedShopData.shop_photo_urls),
       });
       
     } catch (error) {
@@ -342,28 +399,56 @@ const ShopProfileScreen = ({ navigation }) => {
         .map((value) => (value || '').trim())
         .filter(Boolean);
       // API call to update shop profile data only
-      const profileData = {
-        name: formData.name,
-        category: formData.category,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        address: formData.address,
-        city: formData.city,
-        payout_ifsc_code: formData.payout_ifsc_code,
-        payout_account_number: formData.payout_account_number,
-        payout_upi_id: formData.payout_upi_id,
-        instagram_handle: formData.instagram_handle,
-        facebook_handle: formData.facebook_handle,
-        pinterest_handle: formData.pinterest_handle,
-        youtube_handle: formData.youtube_handle,
-        founded_year: formData.founded_year,
-        claimed_lifetime_sales: Number(formData.claimed_lifetime_sales),
-        tagline: formData.tagline,
-        known_for: formData.known_for,
-        story: formData.story,
-        ships_internationally: !!formData.ships_internationally,
-        // shop_photo_urls: cleanedShopPhotoUrls
-      };
+      console.log('isInfluencer========', isInfluencer)
+      const profileData = isInfluencer
+        ? {
+            name: formData.name,
+            category: formData.category,
+            phone: formData.phone,
+            whatsapp: formData.whatsapp,
+            address: formData.address,
+            city: formData.city,
+            instagram_handle: formData.instagram_handle,
+            facebook_handle: formData.facebook_handle,
+            pinterest_handle: formData.pinterest_handle,
+            youtube_handle: formData.youtube_handle,
+            tagline: formData.tagline,
+            known_for: formData.known_for,
+            story: formData.story,
+            // storefront_story: formData.storefrontStory,
+            influencer_wearing_size: formData.wearing_size,
+            influencer_shoe_size: formData.shoe_size,
+            influencer_height_cm: formData.height_cm ? Number(formData.height_cm) : null,
+            influencer_weight_kg: formData.weight_kg ? Number(formData.weight_kg) : null,
+            influencer_bust_cm: formData.bust_cm ? Number(formData.bust_cm) : null,
+            influencer_waist_cm: formData.waist_cm ? Number(formData.waist_cm) : null,
+            influencer_hip_cm: formData.hip_cm ? Number(formData.hip_cm) : null,
+          }
+        : {
+            name: formData.name,
+            category: formData.category,
+            phone: formData.phone,
+            whatsapp: formData.whatsapp,
+            address: formData.address,
+            city: formData.city,
+            payout_ifsc_code: formData.payout_ifsc_code,
+            payout_account_number: formData.payout_account_number,
+            payout_upi_id: formData.payout_upi_id,
+            instagram_handle: formData.instagram_handle,
+            facebook_handle: formData.facebook_handle,
+            pinterest_handle: formData.pinterest_handle,
+            youtube_handle: formData.youtube_handle,
+            founded_year: formData.founded_year,
+            claimed_lifetime_sales: Number(formData.claimed_lifetime_sales),
+            tagline: formData.tagline,
+            known_for: formData.known_for,
+            story: formData.story,
+            ships_internationally: !!formData.ships_internationally,
+            // shop_photo_urls: cleanedShopPhotoUrls
+          };
+      
+          console.log('profileData===========', profileData)
+
       await shop.createOrUpdateShop(profileData);
       
       setShopData({ ...shopData, ...profileData });
@@ -437,7 +522,14 @@ const ShopProfileScreen = ({ navigation }) => {
       tagline: shopData?.tagline || '',
       known_for: shopData?.known_for || '',
       story: shopData?.story || '',
-      storefrontStory: shopData?.storefront_story || '',
+      // storefrontStory: shopData?.storefront_story || '',
+      wearing_size: shopData?.wearing_size ? String(shopData.wearing_size) : '',
+      shoe_size: shopData?.shoe_size ? String(shopData.shoe_size) : '',
+      height_cm: shopData?.height_cm ? String(shopData.height_cm) : '',
+      weight_kg: shopData?.weight_kg ? String(shopData.weight_kg) : '',
+      bust_cm: shopData?.bust_cm ? String(shopData.bust_cm) : '',
+      waist_cm: shopData?.waist_cm ? String(shopData.waist_cm) : '',
+      hip_cm: shopData?.hip_cm ? String(shopData.hip_cm) : '',
       payout_ifsc_code: shopData?.payout_ifsc_code || '',
       payout_account_number: shopData?.payout_account_number || '',
       payout_ifsc_code: shopData?.ifsc_code || '',
@@ -605,7 +697,7 @@ const ShopProfileScreen = ({ navigation }) => {
         }
       >
         <Header 
-          title="Shop Profile"
+          title={headerTitle}
           onNotificationPress={() => console.log('Notification pressed')}
           onProfilePress={() => navigation.navigate('userProfile')}
         />
@@ -635,7 +727,7 @@ const ShopProfileScreen = ({ navigation }) => {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <Text>Unified shop identity</Text>
-                <Text style={styles.sectionTitle}>Shop Profile</Text>
+                <Text style={styles.sectionTitle}>{isInfluencer ? 'Influencer profile' : 'Shop Profile'}</Text>
                 <Text style={styles.sectionDescription}>This powers your single QR code and your bio-link storefront</Text>
               </View>
               {!isEditingProfile ? (
@@ -750,95 +842,126 @@ const ShopProfileScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="store" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Shop Name</Text>
+                  <Text style={styles.infoLabel}>{isInfluencer ? 'Influencer name' : 'Shop Name'}</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.name}
                       onChangeText={(text) => setFormData({ ...formData, name: text })}
-                      placeholder="Enter shop name"
+                      placeholder={isInfluencer ? 'Enter your name' : 'Enter shop name'}
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.name || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.name || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.name || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="tag" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Category</Text>
+                  <Text style={styles.infoLabel}>{isInfluencer ? 'Niche' : 'Category'}</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.category}
                       onChangeText={(text) => setFormData({ ...formData, category: text })}
-                      placeholder="Enter category"
+                      placeholder={isInfluencer ? 'Enter niche' : 'Enter category'}
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.category || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.category || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.category || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
+
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="globe" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Instagram</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.instagram_handle}
                       onChangeText={(text) => setFormData({ ...formData, instagram_handle: text })}
-                      placeholder="https://instagram.com"
+                      placeholder={isInfluencer ? 'https://www.instagram.com/...' : 'https://instagram.com'}
                       keyboardType="url"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.instagram_handle || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.instagram_handle || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.instagram_handle || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="globe" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Facebook</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.facebook_handle}
                       onChangeText={(text) => setFormData({ ...formData, facebook_handle: text })}
-                      placeholder="https://yourwebsite.com"
+                      placeholder={isInfluencer ? 'https://www.facebook.com/...' : 'https://yourwebsite.com'}
                       keyboardType="url"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.facebook_handle || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.facebook_handle || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.facebook_handle || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="globe" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Pinterest</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.pinterest_handle}
                       onChangeText={(text) => setFormData({ ...formData, pinterest_handle: text })}
-                      placeholder="https://pinterest.com"
+                      placeholder={isInfluencer ? 'https://www.pinterest.com/...' : 'https://pinterest.com'}
                       keyboardType="url"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.pinterest_handle || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.pinterest_handle || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.pinterest_handle || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
@@ -863,54 +986,66 @@ const ShopProfileScreen = ({ navigation }) => {
               </View> */}
 
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="phone" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Phone</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.phone}
                       onChangeText={(text) => setFormData({ ...formData, phone: text })}
                       placeholder="Enter phone number"
                       keyboardType="phone-pad"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.phone || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.phone || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.phone || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
 
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="whatsapp" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>WhatsApp</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.whatsapp}
                       onChangeText={(text) => setFormData({ ...formData, whatsapp: text })}
                       placeholder="Enter WhatsApp number"
                       keyboardType="phone-pad"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.whatsapp || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.whatsapp || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.whatsapp || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
 
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="map-marker-alt" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Address</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={[styles.input, styles.textArea]}
+                      style={isInfluencer ? [styles.influencerInput, styles.influencerTextArea] : [styles.input, styles.textArea]}
                       value={formData.address}
                       onChangeText={(text) => setFormData({ ...formData, address: text })}
                       placeholder="Enter address"
@@ -918,103 +1053,223 @@ const ShopProfileScreen = ({ navigation }) => {
                       numberOfLines={3}
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.address || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={[styles.influencerValueBox, styles.influencerTextAreaBox]}>
+                        <Text style={styles.influencerValueText}>{formData.address || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.address || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
 
               <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
+                <View style={[styles.infoIcon, styles.infoIconHidden]}>
                   <FontAwesome5 name="city" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>City</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={isInfluencer ? styles.influencerInput : styles.input}
                       value={formData.city}
                       onChangeText={(text) => setFormData({ ...formData, city: text })}
                       placeholder="Enter city"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.city || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.city || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.city || 'Not specified'}</Text>
+                    )
                   )}
                 </View>
               </View>
 
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <FontAwesome5 name="globe" size={16} color="#666" />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={styles.segmentedLabel}>Ships internationally?</Text>
-                  {isEditingProfile ? (
-                    <View style={styles.segmentedControl}>
-                      <TouchableOpacity
-                        style={[
-                          styles.segmentOption,
-                          formData.ships_internationally && styles.segmentOptionActive,
-                        ]}
-                        onPress={() => setFormData({
-                          ...formData,
-                          ships_internationally: true,
-                        })}
-                        activeOpacity={0.85}
-                      >
-                        <View
-                          style={[
-                            styles.segmentRadio,
-                            formData.ships_internationally && styles.segmentRadioActive,
-                          ]}
-                        >
-                          {formData.ships_internationally && <View style={styles.segmentRadioDot} />}
-                        </View>
-                        <Text
-                          style={[
-                            styles.segmentText,
-                            formData.ships_internationally && styles.segmentTextActive,
-                          ]}
-                        >
-                          Yes
-                        </Text>
-                      </TouchableOpacity>
+              {isInfluencer && (
+                <View style={styles.measurementCard}>
+                  <Text style={styles.measurementTitle}>Body measurements</Text>
+                  <Text style={styles.measurementDesc}>These help customers understand fit for the outfits you wear.</Text>
 
-                      <TouchableOpacity
-                        style={[
-                          styles.segmentOption,
-                          !formData.ships_internationally && styles.segmentOptionActive,
-                        ]}
-                        onPress={() => setFormData({
-                          ...formData,
-                          ships_internationally: false,
-                        })}
-                        activeOpacity={0.85}
-                      >
-                        <View
-                          style={[
-                            styles.segmentRadio,
-                            !formData.ships_internationally && styles.segmentRadioActive,
-                          ]}
-                        >
-                          {!formData.ships_internationally && <View style={styles.segmentRadioDot} />}
-                        </View>
-                        <Text
-                          style={[
-                            styles.segmentText,
-                            !formData.ships_internationally && styles.segmentTextActive,
-                          ]}
-                        >
-                          No
-                        </Text>
-                      </TouchableOpacity>
+                  <View style={styles.measurementGrid}>
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Wearing size</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.wearing_size}
+                        onChangeText={(text) => setFormData({ ...formData, wearing_size: text })}
+                        placeholder="S"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
                     </View>
-                  ) : (
-                    <Text style={styles.infoValue}>
-                      {formData.ships_internationally ? 'Yes' : 'No'}
-                    </Text>
-                  )}
+
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Shoe size</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.shoe_size}
+                        onChangeText={(text) => setFormData({ ...formData, shoe_size: text })}
+                        placeholder="UK 7"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.measurementGrid}>
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Height (cm)</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.height_cm}
+                        onChangeText={(text) => setFormData({ ...formData, height_cm: text })}
+                        placeholder="178"
+                        keyboardType="numeric"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Weight (kg)</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.weight_kg}
+                        onChangeText={(text) => setFormData({ ...formData, weight_kg: text })}
+                        placeholder="67"
+                        keyboardType="numeric"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.measurementGrid}>
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Bust (cm)</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.bust_cm}
+                        onChangeText={(text) => setFormData({ ...formData, bust_cm: text })}
+                        placeholder="86"
+                        keyboardType="numeric"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Waist (cm)</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.waist_cm}
+                        onChangeText={(text) => setFormData({ ...formData, waist_cm: text })}
+                        placeholder="66"
+                        keyboardType="numeric"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.measurementGrid}>
+                    <View style={styles.measurementField}>
+                      <Text style={styles.measurementLabel}>Hip (cm)</Text>
+                      <TextInput
+                        style={styles.measurementInput}
+                        value={formData.hip_cm}
+                        onChangeText={(text) => setFormData({ ...formData, hip_cm: text })}
+                        placeholder="92"
+                        keyboardType="numeric"
+                        editable={isEditingProfile}
+                        selectTextOnFocus={isEditingProfile}
+                      />
+                    </View>
+
+                    <View style={styles.measurementField} />
+                  </View>
                 </View>
-              </View>
+              )}
+
+              {!isInfluencer && (
+                <View style={styles.infoRow}>
+                  <View style={[styles.infoIcon, styles.infoIconHidden]}>
+                    <FontAwesome5 name="globe" size={16} color="#666" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.segmentedLabel}>Ships internationally?</Text>
+                    {isEditingProfile ? (
+                      <View style={styles.segmentedControl}>
+                        <TouchableOpacity
+                          style={[
+                            styles.segmentOption,
+                            formData.ships_internationally && styles.segmentOptionActive,
+                          ]}
+                          onPress={() => setFormData({
+                            ...formData,
+                            ships_internationally: true,
+                          })}
+                          activeOpacity={0.85}
+                        >
+                          <View
+                            style={[
+                              styles.segmentRadio,
+                              formData.ships_internationally && styles.segmentRadioActive,
+                            ]}
+                          >
+                            {formData.ships_internationally && <View style={styles.segmentRadioDot} />}
+                          </View>
+                          <Text
+                            style={[
+                              styles.segmentText,
+                              formData.ships_internationally && styles.segmentTextActive,
+                            ]}
+                          >
+                            Yes
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.segmentOption,
+                            !formData.ships_internationally && styles.segmentOptionActive,
+                          ]}
+                          onPress={() => setFormData({
+                            ...formData,
+                            ships_internationally: false,
+                          })}
+                          activeOpacity={0.85}
+                        >
+                          <View
+                            style={[
+                              styles.segmentRadio,
+                              !formData.ships_internationally && styles.segmentRadioActive,
+                            ]}
+                          >
+                            {!formData.ships_internationally && <View style={styles.segmentRadioDot} />}
+                          </View>
+                          <Text
+                            style={[
+                              styles.segmentText,
+                              !formData.ships_internationally && styles.segmentTextActive,
+                            ]}
+                          >
+                            No
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>
+                        {formData.ships_internationally ? 'Yes' : 'No'}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
 
 
               {/* <View style={styles.infoRow}>
@@ -1058,47 +1313,79 @@ const ShopProfileScreen = ({ navigation }) => {
                 </View>
               </View> */}
               <View style={styles.infoRow}>
-                <Text>Storefront story</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <View style={styles.infoIcon}>
-                  <FontAwesome5 name="calendar" size={16} color="#666" />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Founded Year</Text>
-                  {isEditingProfile ? (
-                    <TextInput
-                      style={styles.input}
-                      value={formData.founded_year}
-                      onChangeText={(text) => setFormData({ ...formData, founded_year: text })}
-                      placeholder="e.g., 2020"
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                  ) : (
-                    <Text style={styles.infoValue}>{formData.founded_year || 'Not specified'}</Text>
-                  )}
-                </View>
+                <Text>{isInfluencer ? 'Influencer story' : 'Storefront story'}</Text>
               </View>
 
-              <View style={styles.infoRow}>
+              {/* <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
-                  <FontAwesome5 name="chart-line" size={16} color="#666" />
+                  <FontAwesome5 name="book-open" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Lifetime Sales</Text>
+                  <Text style={styles.infoLabel}>{isInfluencer ? 'Influencer Story' : 'Storefront Story'}</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
-                      value={formData.claimed_lifetime_sales}
-                      onChangeText={(text) => setFormData({ ...formData, claimed_lifetime_sales: text })}
-                      placeholder="e.g., ₹50,000"
+                      style={isInfluencer ? [styles.influencerInput, styles.influencerTextArea] : [styles.input, styles.textArea]}
+                      value={formData.storefrontStory}
+                      onChangeText={(text) => setFormData({ ...formData, storefrontStory: text })}
+                      placeholder={isInfluencer ? 'Tell your influencer story' : 'Tell your storefront story'}
+                      multiline
+                      numberOfLines={4}
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.claimed_lifetime_sales || 'Not specified'}</Text>
+                    isInfluencer ? (
+                      <View style={[styles.influencerValueBox, styles.influencerTextAreaBox]}>
+                        <Text style={styles.influencerValueText}>{formData.storefrontStory || 'No story provided'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.storefrontStory || 'No story provided'}</Text>
+                    )
                   )}
                 </View>
-              </View>
+              </View> */}
+
+              {!isInfluencer && (
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIcon}>
+                    <FontAwesome5 name="calendar" size={16} color="#666" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Founded Year</Text>
+                    {isEditingProfile ? (
+                      <TextInput
+                        style={styles.input}
+                        value={formData.founded_year}
+                        onChangeText={(text) => setFormData({ ...formData, founded_year: text })}
+                        placeholder="e.g., 2020"
+                        keyboardType="numeric"
+                        maxLength={4}
+                      />
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.founded_year || 'Not specified'}</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {!isInfluencer && (
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIcon}>
+                    <FontAwesome5 name="chart-line" size={16} color="#666" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Lifetime Sales</Text>
+                    {isEditingProfile ? (
+                      <TextInput
+                        style={styles.input}
+                        value={formData.claimed_lifetime_sales}
+                        onChangeText={(text) => setFormData({ ...formData, claimed_lifetime_sales: text })}
+                        placeholder="e.g., ₹50,000"
+                      />
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.claimed_lifetime_sales || 'Not specified'}</Text>
+                    )}
+                  </View>
+                </View>
+              )}
 
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
@@ -1143,18 +1430,24 @@ const ShopProfileScreen = ({ navigation }) => {
                   <FontAwesome5 name="book-open" size={16} color="#666" />
                 </View>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Your Story</Text>
+                  <Text style={styles.infoLabel}>Your story</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={[styles.input, styles.textArea]}
+                      style={isInfluencer ? [styles.influencerInput, styles.influencerTextArea] : [styles.input, styles.textArea]}
                       value={formData.story}
                       onChangeText={(text) => setFormData({ ...formData, story: text })}
-                      placeholder="Tell your shop's story"
+                      placeholder={isInfluencer ? "Tell your influencer story" : "Tell your shop's story"}
                       multiline
                       numberOfLines={4}
                     />
                   ) : (
-                    <Text style={styles.infoValue}>{formData.story || 'No story provided'}</Text>
+                    isInfluencer ? (
+                      <View style={[styles.influencerValueBox, styles.influencerTextAreaBox]}>
+                        <Text style={styles.influencerValueText}>{formData.story || 'No story provided'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.story || 'No story provided'}</Text>
+                    )
                   )}
                 </View>
               </View>
@@ -1592,13 +1885,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
+    width: 0,
+    height: 0,
+    marginRight: 0,
+    opacity: 0,
+  },
+  infoIconHidden: {
+    width: 0,
+    height: 0,
+    marginRight: 0,
+    opacity: 0,
   },
   infoContent: {
     flex: 1,
@@ -1789,20 +2085,83 @@ const styles = StyleSheet.create({
   segmentRadioDot: {
     width: 6,
     height: 6,
-    borderRadius: 4,
+    borderRadius: 3,
     backgroundColor: '#f59e0b',
   },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0f172a',
+  measurementCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#f3f4f6',
   },
-  segmentTextActive: {
-    color: '#0f172a',
+  measurementTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
-  textArea: {
-    height: 80,
+  measurementDesc: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  measurementGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  measurementField: {
+    flex: 1,
+  },
+  measurementLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  measurementInput: {
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    fontSize: 15,
+    color: '#111827',
+  },
+  influencerInput: {
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    fontSize: 15,
+    color: '#111827',
+  },
+  influencerTextArea: {
+    paddingTop: 16,
+    paddingBottom: 16,
     textAlignVertical: 'top',
+  },
+  influencerValueBox: {
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    justifyContent: 'center',
+  },
+  influencerTextAreaBox: {
+    paddingTop: 16,
+    paddingBottom: 16,
+    justifyContent: 'flex-start',
+  },
+  influencerValueText: {
+    fontSize: 15,
+    color: '#111827',
   },
   actionsSection: {
     paddingVertical: 20,

@@ -12,7 +12,8 @@ const Header = ({
   onBackPress,
   headerType = 'default', // 'default', 'page', 'minimal'
   subtitle,
-  rightComponent
+  rightComponent,
+  titleAlign = 'center'
 }) => {
   const insets = useSafeAreaInsets();
   
@@ -26,7 +27,12 @@ const Header = ({
                 <FontAwesome5 name="arrow-left" size={18} color="#000" />
               </TouchableOpacity>
             )}
-            <View style={styles.titleContainer}>
+            <View
+              style={[
+                styles.titleContainer,
+                titleAlign === 'left' && styles.titleContainerLeft,
+              ]}
+            >
               <Text style={styles.pageTitle}>{title}</Text>
               {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
             </View>
@@ -129,6 +135,9 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     alignItems: 'center',
+  },
+  titleContainerLeft: {
+    alignItems: 'flex-start',
   },
   pageTitle: {
     fontSize: 20,

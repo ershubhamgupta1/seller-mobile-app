@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
 } from "react-native";
 import Header from "../components/Header";
-import { analytics, shop } from "../services/api";
+import { analytics, collaboration, shop } from "../services/api";
 import { Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from '../contexts/AuthContext';
 
 /* ===================== TOKENS ===================== */
 const COLORS = {
@@ -116,6 +117,42 @@ const Badge = ({ type = "success", icon, text }) => {
   );
 };
 
+const InfluencerAccountCard = ({ email, shopData }) => {
+  const shopStatus = shopData?.verification_status || 'DRAFT';
+
+  return (
+    <View style={base.card}>
+      <Text style={base.label}>Account</Text>
+      <Text style={styles.influencerEmail}>{email || '—'}</Text>
+
+      <View style={styles.innerCard}>
+        <Text style={styles.sectionTitle}>Shop status</Text>
+
+        {shopStatus === 'VERIFIED' ? (
+          <View style={styles.verifiedBadge}>
+            <Feather name="check-circle" size={16} color="#1c7c54" />
+            <Text style={styles.verifiedText}>Verified</Text>
+          </View>
+        ) : (
+          <View style={styles.pendingBadge}>
+            <Feather name="clock" size={16} color="#6b7280" />
+            <Text style={styles.influencerDraftText}>Draft</Text>
+          </View>
+        )}
+
+        <Text style={styles.url}>{shopData?.bio_link || '—'}</Text>
+
+        <Text style={styles.influencerNotPromoted}>Not promoted</Text>
+
+        <TouchableOpacity style={styles.influencerPromoBtn}>
+          <Text style={styles.influencerPromoBtnText}>Request promotion</Text>
+          <Feather name="arrow-up" size={16} color="#111827" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
 const AccountCard = ({ shopData }) => {
   const shopStatus = shopData?.verification_status || 'PENDING';
 
@@ -166,6 +203,33 @@ const DashboardScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [metrics, setMetrics] = useState({});
   const [shopData, setShopData] = useState({});
+  const [collabCounts, setCollabCounts] = useState({ activeCollabs: 0 });
+  const { user } = useAuth();
+
+  const resolveAccountType = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const accountTypeRaw = u?.account_type;
+    if (typeof accountTypeRaw === 'string') {
+      const normalized = accountTypeRaw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+    if (typeof raw === 'string') {
+      const normalized = raw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    if (u?.is_influencer === true) return 'influencer';
+    if (u?.is_business === true) return 'business';
+
+    return 'business';
+  };
+
+  const isInfluencer = resolveAccountType(user) === 'influencer';
 
   useEffect(() => {
     fetchSummaryData();
@@ -189,6 +253,16 @@ const DashboardScreen = ({ navigation }) => {
 
   const fetchSummaryData = async () => {
     try {
+      const incomingReq = await collaboration.getIncomingRequests();
+      const incomingList = Array.isArray(incomingReq)
+        ? incomingReq
+        : Array.isArray(incomingReq?.requests)
+          ? incomingReq.requests
+          : Array.isArray(incomingReq?.data)
+            ? incomingReq.data
+            : [];
+      setCollabCounts({ activeCollabs: incomingList.length });
+
       const res = await analytics.getSummary();
       setMetrics(res?.metrics || {});
     } catch (e) {
@@ -219,75 +293,148 @@ const DashboardScreen = ({ navigation }) => {
         />
 
         <View style={styles.content}>
-          {/* NAV */}
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate("feedScreen")}
-          >
-            <Text style={styles.secondaryButtonText}>Open Feed</Text>
-            <Feather name="arrow-right" size={16} />
-          </TouchableOpacity>
+          {isInfluencer ? (
+            <>
+              <View style={base.card}>
+                <Text style={styles.smallTitle}>Quick Actions</Text>
+                <Text style={base.title}>Run your storefront like a product</Text>
+                <Text style={base.description}>
+                  Upload social links, add structured product details, and build trust with verification. This is how we kill “DM for price”.
+                </Text>
 
-          {/* QUICK ACTION */}
-          <View style={base.card}>
-            <Text style={styles.smallTitle}>Quick Actions</Text>
-            <Text style={base.title}>Run your storefront like a product</Text>
-            <Text style={base.description}>
-              Upload social links, add structured product details, and build trust with verification. This is how we kill “DM for price”.
-            </Text>
-
-            <View style={styles.statsContainer}>
-              <StatCard title="Total Posts" value={metrics.total_posts} desc={'Every post is a structured product card'} />
-              <StatCard title="Images" value={metrics.total_images} desc={'Boost conversions with multi-image support'} />
-              <StatCard title="Shares" value={metrics.total_shares} desc={'Signal: demand and social proof'} />
-            </View>
-          </View>
-
-          {/* QR */}
-          <View style={base.card}>
-            <View style={base.rowBetween}>
-              <View>
-                <Text style={styles.smallTitle}>Unified Shop Identity</Text>
-                <Text style={base.title}>One QR. One link.</Text>
+                <View style={styles.statsContainer}>
+                  <StatCard
+                    title="Active Collabs"
+                    value={collabCounts.activeCollabs ?? 0}
+                    desc={'Accepted collab posts in your closet'}
+                  />
+                  <StatCard
+                    title="Closet Images"
+                    value={metrics.total_images ?? 0}
+                    desc={'Images across your accepted collab posts'}
+                  />
+                  <StatCard
+                    title="Collab Shares"
+                    value={metrics.total_shares ?? 0}
+                    desc={'Share signal from accepted collab posts'}
+                  />
+                </View>
               </View>
-              <MaterialIcons name="qr-code" size={24} />
-            </View>
 
-            <Text style={base.description}>
-              Use a single QR to bridge offline traffic to your video-first storefront.
-            </Text>
+              <View style={base.card}>
+                <View style={base.rowBetween}>
+                  <View>
+                    <Text style={styles.smallTitle}>Unified Shop Identity</Text>
+                    <Text style={base.title}>One QR. One link.</Text>
+                  </View>
+                  <MaterialIcons name="qr-code" size={24} />
+                </View>
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('shopIdentity')}>
-              <Text style={styles.secondaryButtonText}>Manage</Text>
-              <Feather name="arrow-right" size={16} />
-            </TouchableOpacity>
-          </View>
+                <Text style={base.description}>
+                  Use a single QR to bridge offline traffic to your video-first storefront.
+                </Text>
 
-          {/* TRUST */}
-          <View style={base.card}>
-            <View style={base.rowBetween}>
-              <View>
-                <Text style={styles.smallTitle}>Trust & Verification</Text>
-                <Text style={base.title}>Earn the Blue Tick</Text>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('shopIdentity')}>
+                  <Text style={styles.secondaryButtonText}>Manage</Text>
+                  <Feather name="arrow-right" size={16} />
+                </TouchableOpacity>
               </View>
-              <Feather name="check-circle" size={22} />
-            </View>
 
-            <Text style={base.description}>
-              Submit GST, shop photos, and social proof. Verification unlocks marketplace trust.
-            </Text>
+              <View style={base.card}>
+                <View style={base.rowBetween}>
+                  <View>
+                    <Text style={styles.smallTitle}>Trust & Verification</Text>
+                    <Text style={base.title}>Earn the Blue Tick</Text>
+                  </View>
+                  <Feather name="check-circle" size={22} />
+                </View>
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('trustMeter')}>
-              <Text style={styles.secondaryButtonText}>
-                Open Trust Meter
-              </Text>
-              <Feather name="arrow-right" size={16} />
-            </TouchableOpacity>
-          </View>
+                <Text style={base.description}>
+                  Submit GST, shop photos, and social proof. Verification unlocks marketplace trust.
+                </Text>
 
-          {/* ACCOUNT */}
-          <AccountCard shopData={shopData} />
-          <ProTipCard />
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('trustMeter')}>
+                  <Text style={styles.secondaryButtonText}>Open Trust Meter</Text>
+                  <Feather name="arrow-right" size={16} />
+                </TouchableOpacity>
+              </View>
+
+              <InfluencerAccountCard email={user?.email} shopData={shopData} />
+              <ProTipCard />
+            </>
+          ) : (
+            <>
+              {/* NAV */}
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => navigation.navigate("feedScreen")}
+              >
+                <Text style={styles.secondaryButtonText}>Open Feed</Text>
+                <Feather name="arrow-right" size={16} />
+              </TouchableOpacity>
+
+              {/* QUICK ACTION */}
+              <View style={base.card}>
+                <Text style={styles.smallTitle}>Quick Actions</Text>
+                <Text style={base.title}>Run your storefront like a product</Text>
+                <Text style={base.description}>
+                  Upload social links, add structured product details, and build trust with verification. This is how we kill “DM for price”.
+                </Text>
+
+                <View style={styles.statsContainer}>
+                  <StatCard title="Total Posts" value={metrics.total_posts} desc={'Every post is a structured product card'} />
+                  <StatCard title="Images" value={metrics.total_images} desc={'Boost conversions with multi-image support'} />
+                  <StatCard title="Shares" value={metrics.total_shares} desc={'Signal: demand and social proof'} />
+                </View>
+              </View>
+
+              {/* QR */}
+              <View style={base.card}>
+                <View style={base.rowBetween}>
+                  <View>
+                    <Text style={styles.smallTitle}>Unified Shop Identity</Text>
+                    <Text style={base.title}>One QR. One link.</Text>
+                  </View>
+                  <MaterialIcons name="qr-code" size={24} />
+                </View>
+
+                <Text style={base.description}>
+                  Use a single QR to bridge offline traffic to your video-first storefront.
+                </Text>
+
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('shopIdentity')}>
+                  <Text style={styles.secondaryButtonText}>Manage</Text>
+                  <Feather name="arrow-right" size={16} />
+                </TouchableOpacity>
+              </View>
+
+              {/* TRUST */}
+              <View style={base.card}>
+                <View style={base.rowBetween}>
+                  <View>
+                    <Text style={styles.smallTitle}>Trust & Verification</Text>
+                    <Text style={base.title}>Earn the Blue Tick</Text>
+                  </View>
+                  <Feather name="check-circle" size={22} />
+                </View>
+
+                <Text style={base.description}>
+                  Submit GST, shop photos, and social proof. Verification unlocks marketplace trust.
+                </Text>
+
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('trustMeter')}>
+                  <Text style={styles.secondaryButtonText}>
+                    Open Trust Meter
+                  </Text>
+                  <Feather name="arrow-right" size={16} />
+                </TouchableOpacity>
+              </View>
+
+              {/* ACCOUNT */}
+              <AccountCard shopData={shopData} />
+              <ProTipCard />
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -443,6 +590,42 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 6,
     lineHeight: 24,
+  },
+
+  influencerEmail: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+
+  influencerDraftText: {
+    color: COLORS.textMuted,
+    fontWeight: "600",
+  },
+
+  influencerNotPromoted: {
+    marginTop: 10,
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+
+  influencerPromoBtn: {
+    marginTop: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#fbbf24',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  influencerPromoBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
   },
 
   /* VERIFICATION BADGES */

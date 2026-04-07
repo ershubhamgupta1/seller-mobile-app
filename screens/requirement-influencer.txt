@@ -1,0 +1,60 @@
+Customer side
+
+1) Trending influencer on feed page
+2) when open any influencer then new page should be opened and show the influencer detail the way we store details (view optimi)
+3) on store details page we show the collabrated products 
+
+
+
+Business side
+on sign up page show option to create acc for infliuencr or business
+
+Inventory screen
+    1) Add button to see the requests, when user click on it new page will opened to see the requests from influencer, when click on request the request detial page will be opened
+    2) on edit post page: new section to collabaroate with influencer to send request(api : create collaboration request) 
+
+
+
+Dashboard screen
+    on click of request promotion the api will be called to prmoted (whether promoted or not get in api : /shops/me)
+
+
+Influernce
+
+Dashboard changes
+ 1) Heello Influencer name
+
+ 2) Feed page
+    Same as business
+
+3) Shop profile
+    1) instead of shop profile its influewerncr profile
+    2) change is form
+
+4) Inventory
+    on side bar instead of inventory show the closet
+    when click on search box "Search collabs" use can enter store name and we will show the related posts of store, then below the post we need to show send request button to send request
+    once user sent the request then in closet screen, user can see the collabortaed posts with status pending/acccpted, when user click on requested post then new page will get open to see the request (api : /requestDetails)
+
+5) On collaborated posts influencer can see the post details, influencer can change the photo of post and can change the social link of the post
+
+6) Orders
+    same it should see only show the orders related to collaborated posts (list orders)
+    2) on order details screen show "collab"
+
+7) Analytics 
+    change the sections and data but api is same
+
+8) Trust & verification
+    change label Adhaar number instead of gst number
+    change the trust meter cards to show the different data
+
+
+
+
+
+APi : 
+1) list outgoing requests  (to show the requests from business to influencer)
+2) list incominng request: (to show requests fron influencer to business)
+3) api to upload : Business upload apis (inventory images) api for posts
+api to upload : Temporary is for shop photo upload apis (shop images) api for shops

@@ -59,7 +59,17 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Invalid email or password');
       }
 
-      setUser(response.user || response);
+      let nextUser = response.user || response;
+      try {
+        const me = await businessAuth.getMe();
+        if (me) {
+          nextUser = me;
+        }
+      } catch (e) {
+        // ignore getMe failures; fallback to login response
+      }
+
+      setUser(nextUser);
       setIsAuthenticated(true);
       return response;
     } catch (error) {

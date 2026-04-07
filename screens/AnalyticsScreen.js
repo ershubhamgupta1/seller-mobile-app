@@ -13,10 +13,12 @@ import Header from '../components/Header';
 import { analytics } from "../services/api";
 import { useNavigation } from "@react-navigation/native";
 import Svg, { Path } from "react-native-svg";
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AnalyticsScreen() {
 
   const navigation = useNavigation();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,6 +61,38 @@ export default function AnalyticsScreen() {
   const recentPosts = overview?.tables?.recent_posts || [];
   const metrics = summary?.metrics || {};
 
+  const resolveAccountType = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const accountTypeRaw = u?.account_type;
+    if (typeof accountTypeRaw === 'string') {
+      const normalized = accountTypeRaw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+    if (typeof raw === 'string') {
+      const normalized = raw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    if (u?.is_influencer === true) return 'influencer';
+    if (u?.is_business === true) return 'business';
+
+    return 'business';
+  };
+
+  const isInfluencer = resolveAccountType(user) === 'influencer';
+  const getOverviewMetric = (key) => {
+    const direct = overview?.[key];
+    if (direct !== undefined && direct !== null) return direct;
+    const fromKpis = overview?.kpis?.[key];
+    if (fromKpis !== undefined && fromKpis !== null) return fromKpis;
+    return 0;
+  };
+
   const seriesPosts = overview?.series?.posts || [];
 
   const formatDate = (ts) => {
@@ -96,6 +130,14 @@ export default function AnalyticsScreen() {
     </View>
   )
 
+  const InfluencerMetric = ({ title, value, desc }) => (
+    <View style={styles.metric}>
+      <Text style={styles.metricTitle}>{title}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricDesc}>{desc}</Text>
+    </View>
+  );
+
   const Row = ({ title, subtitle, right }) => (
     <View style={styles.rowItem}>
       <View>
@@ -131,193 +173,251 @@ export default function AnalyticsScreen() {
           onProfilePress={() => navigation.navigate("userProfile")}
         />
         <View style={{ padding: 20 }}>
-          {/* Shop Analytics */}
-          <View style={styles.card}>
+          {isInfluencer ? (
+            <View style={styles.card}>
+              <Text style={styles.smallTitle}>Influencer Analytics</Text>
+              <Text style={styles.title}>{shopName}</Text>
 
-            <Text style={styles.smallTitle}>Shop Analytics</Text>
-            <Text style={styles.title}>{shopName}</Text>
-
-            <Text style={styles.description}>
-              Sales, customers, payouts, and growth signals — shop-scoped and built for decision-making.
-            </Text>
-
-            <Metric title="Gross Sales" value={`₹${kpis.gross_sales ?? 0}`} desc="GMV (before platform fee)" />
-            <Metric title="Platform Fee" value={`₹${kpis.platform_fee ?? 0}`} desc="10% marketplace fee" />
-            <Metric title="Net Sales" value={`₹${kpis.net_sales ?? 0}`} desc="GMV after fee" />
-            <Metric title="Orders" value={`${kpis.orders ?? 0}`} desc="Track conversion and AOV" />
-            <Metric title="Payouts Pending" value={`₹${kpis.payouts_pending ?? 0}`} desc="Settlement pipeline" />
-
-          </View>
-          {/* Inventory Growth */}
-          <View style={styles.card}>
-
-            <View style={styles.growthHeaderRow}>
-              <Text style={styles.growthHeaderTitle}>Inventory Growth</Text>
-              <Text style={styles.growthHeaderRight}>
-                {engagement.posts_7d ?? 0} in 7d · {engagement.posts_30d ?? 0} in 30d
+              <Text style={styles.description}>
+                Collaboration orders, your earnings cut, and growth signals from partnered products.
               </Text>
+
+              <InfluencerMetric
+                title="Collab GMV"
+                value={`${getOverviewMetric('gross_sales')}`}
+                desc="Customer-paid total on attributed collaboration orders"
+              />
+              <InfluencerMetric
+                title="Collaborated items subtotal"
+                value={`${getOverviewMetric('item_sales')}`}
+                desc="Subtotal of items tied to accepted collaborations"
+              />
+              <InfluencerMetric
+                title="Your Cut"
+                value={`${getOverviewMetric('influencer_cut')}`}
+                desc="Your earnings from collaborated orders"
+              />
+              <InfluencerMetric
+                title="Orders"
+                value={`${getOverviewMetric('orders')}`}
+                desc="Attributed collab orders"
+              />
+              <InfluencerMetric
+                title="Customers Reached"
+                value={`${getOverviewMetric('customers')}`}
+                desc="Unique buyers from your collab orders"
+              />
+              <InfluencerMetric
+                title="Accepted collaborations"
+                value={`${getOverviewMetric('accepted_collabs')}`}
+                desc="Active accepted collaboration requests"
+              />
+              <InfluencerMetric
+                title="Converted collaborations"
+                value={`${getOverviewMetric('converted_collabs')}`}
+                desc="Accepted collaborations with at least one order"
+              />
+              <InfluencerMetric
+                title="Average collab order value"
+                value={`${getOverviewMetric('avg_order_value')}`}
+                desc="Collab GMV divided by attributed collab orders"
+              />
             </View>
+          ) : (
+            <>
+              {/* Shop Analytics */}
+              <View style={styles.card}>
 
-            <Text style={styles.growthMainTitle}>Posts (last 14 days)</Text>
+                <Text style={styles.smallTitle}>Shop Analytics</Text>
+                <Text style={styles.title}>{shopName}</Text>
 
-            <View style={styles.chartOuter}>
-              <View style={styles.chartInner}>
-                <View
-                  style={styles.chartSvgContainer}
-                  onLayout={(e) => {
-                    const { width, height } = e.nativeEvent.layout;
-                    if (width && height) {
-                      setPostsChartSize({ width, height });
-                    }
-                  }}
-                >
-                  {postsChartSize.width > 0 && postsChartSize.height > 0 && (
-                    <Svg
-                      width={postsChartSize.width}
-                      height={postsChartSize.height}
-                      viewBox={`0 0 ${postsChartSize.width} ${postsChartSize.height}`}
-                    >
-                      <Path
-                        d={buildSparklinePath(
-                          seriesPosts.slice(-14),
-                          postsChartSize.width,
-                          postsChartSize.height,
-                          14
-                        )}
-                        stroke="#f59e0b"
-                        strokeWidth={4}
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  )}
+                <Text style={styles.description}>
+                  Sales, customers, payouts, and growth signals — shop-scoped and built for decision-making.
+                </Text>
+
+                <Metric title="Gross Sales" value={`₹${kpis.gross_sales ?? 0}`} desc="GMV (before platform fee)" />
+                <Metric title="Platform Fee" value={`₹${kpis.platform_fee ?? 0}`} desc="10% marketplace fee" />
+                <Metric title="Net Sales" value={`₹${kpis.net_sales ?? 0}`} desc="GMV after fee" />
+                <Metric title="Orders" value={`${kpis.orders ?? 0}`} desc="Track conversion and AOV" />
+                <Metric title="Payouts Pending" value={`₹${kpis.payouts_pending ?? 0}`} desc="Settlement pipeline" />
+
+              </View>
+            </>
+          )}
+          {!isInfluencer && (
+            <>
+              {/* Inventory Growth */}
+              <View style={styles.card}>
+
+                <View style={styles.growthHeaderRow}>
+                  <Text style={styles.growthHeaderTitle}>Inventory Growth</Text>
+                  <Text style={styles.growthHeaderRight}>
+                    {engagement.posts_7d ?? 0} in 7d · {engagement.posts_30d ?? 0} in 30d
+                  </Text>
                 </View>
+
+                <Text style={styles.growthMainTitle}>Posts (last 14 days)</Text>
+
+                <View style={styles.chartOuter}>
+                  <View style={styles.chartInner}>
+                    <View
+                      style={styles.chartSvgContainer}
+                      onLayout={(e) => {
+                        const { width, height } = e.nativeEvent.layout;
+                        if (width && height) {
+                          setPostsChartSize({ width, height });
+                        }
+                      }}
+                    >
+                      {postsChartSize.width > 0 && postsChartSize.height > 0 && (
+                        <Svg
+                          width={postsChartSize.width}
+                          height={postsChartSize.height}
+                          viewBox={`0 0 ${postsChartSize.width} ${postsChartSize.height}`}
+                        >
+                          <Path
+                            d={buildSparklinePath(
+                              seriesPosts.slice(-14),
+                              postsChartSize.width,
+                              postsChartSize.height,
+                              14
+                            )}
+                            stroke="#f59e0b"
+                            strokeWidth={4}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
               </View>
-            </View>
-
-          </View>
-          {/* Engagement */}
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.smallTitle}>Engagement</Text>
-              <Text style={styles.smallTitle}>{engagement.shares_7d ?? 0} in 7d · {engagement.shares_30d ?? 0} in 30d</Text>
-            </View>
-            <Text style={styles.titleSmall}>Shares (last 14 days)</Text>
-            <View style={styles.chart}></View>
-          </View>
+              {/* Engagement */}
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.smallTitle}>Engagement</Text>
+                  <Text style={styles.smallTitle}>{engagement.shares_7d ?? 0} in 7d · {engagement.shares_30d ?? 0} in 30d</Text>
+                </View>
+                <Text style={styles.titleSmall}>Shares (last 14 days)</Text>
+                <View style={styles.chart}></View>
+              </View>
 
 
-          {/* Top Posts */}
+              {/* Top Posts */}
 
-          <View style={styles.card}>
+              <View style={styles.card}>
 
-            <View style={styles.rowBetween}>
-              <Text style={styles.smallTitle}>Top Posts</Text>
-              <Feather name="trending-up" size={18} />
-            </View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.smallTitle}>Top Posts</Text>
+                  <Feather name="trending-up" size={18} />
+                </View>
 
-            <Text style={styles.titleSmall}>Best performing by shares</Text>
+                <Text style={styles.titleSmall}>Best performing by shares</Text>
 
-            {topPosts.length === 0 ? (
-              <Row title="No posts yet" subtitle="" right="" />
-            ) : (
-              topPosts.slice(0, 5).map((p) => (
-                <Row
-                  key={p.id}
-                  title={p.title || `Post #${p.id}`}
-                  subtitle={`${(p.social_platform || "").toString()} · ${formatDate(p.created_at)}`}
-                  right={`${p.share_count ?? 0}`}
+                {topPosts.length === 0 ? (
+                  <Row title="No posts yet" subtitle="" right="" />
+                ) : (
+                  topPosts.slice(0, 5).map((p) => (
+                    <Row
+                      key={p.id}
+                      title={p.title || `Post #${p.id}`}
+                      subtitle={`${(p.social_platform || "").toString()} · ${formatDate(p.created_at)}`}
+                      right={`${p.share_count ?? 0}`}
+                    />
+                  ))
+                )}
+
+              </View>
+
+
+              {/* Recent Activity */}
+
+              <View style={styles.card}>
+
+                <View style={styles.rowBetween}>
+                  <Text style={styles.smallTitle}>Recent Activity</Text>
+                  <Feather name="clock" size={18} />
+                </View>
+
+                <Text style={styles.titleSmall}>Latest posts created</Text>
+
+                {recentPosts.length === 0 ? (
+                  <Row title="No recent activity" subtitle="" right="" />
+                ) : (
+                  recentPosts.slice(0, 5).map((p) => (
+                    <Row
+                      key={p.id}
+                      title={p.title || `Post #${p.id}`}
+                      subtitle={`${(p.social_platform || "").toString()} · ${formatDate(p.created_at)}`}
+                      right={`${p.currency || "INR"} ${p.price ?? 0}`}
+                    />
+                  ))
+                )}
+
+              </View>
+              {/* Catalog Snapshot */}
+
+              <View style={styles.card}>
+
+                <View style={styles.rowBetween}>
+                  <Text style={styles.smallTitle}>Inventory Intelligence</Text>
+                  <Feather name="maximize-2" size={18} />
+                </View>
+
+                <Text style={styles.titleSmall}>Catalog snapshot</Text>
+
+                <Metric title="Total Posts" value={`${inventory.total_posts ?? 0}`} desc="" />
+                <Metric
+                  title="Priced Posts"
+                  value={`${inventory.priced_posts ?? 0}`}
+                  desc={`${inventory.min_price ?? 0} min · ${inventory.max_price ?? 0} max`}
                 />
-              ))
-            )}
+                <Metric title="Catalog Value" value={`${inventory.catalog_value ?? 0}`} desc="Sum of all priced posts" />
 
-          </View>
+              </View>
+              {/* Social Signal */}
 
+              <View style={styles.card}>
 
-          {/* Recent Activity */}
+                <View style={styles.rowBetween}>
+                  <Text style={styles.smallTitle}>Engagement</Text>
+                  <Feather name="share-2" size={18} />
+                </View>
 
-          <View style={styles.card}>
+                <Text style={styles.titleSmall}>Social signal</Text>
 
-            <View style={styles.rowBetween}>
-              <Text style={styles.smallTitle}>Recent Activity</Text>
-              <Feather name="clock" size={18} />
-            </View>
+                <View style={styles.metricRow}>
 
-            <Text style={styles.titleSmall}>Latest posts created</Text>
+                  <View style={styles.metricHalf}>
+                    <Text style={styles.metricTitle}>Total Shares</Text>
+                    <Text style={styles.metricValue}>{metrics.total_shares ?? engagement.total_shares ?? 0}</Text>
+                  </View>
 
-            {recentPosts.length === 0 ? (
-              <Row title="No recent activity" subtitle="" right="" />
-            ) : (
-              recentPosts.slice(0, 5).map((p) => (
-                <Row
-                  key={p.id}
-                  title={p.title || `Post #${p.id}`}
-                  subtitle={`${(p.social_platform || "").toString()} · ${formatDate(p.created_at)}`}
-                  right={`${p.currency || "INR"} ${p.price ?? 0}`}
-                />
-              ))
-            )}
+                  <View style={styles.metricHalf}>
+                    <Text style={styles.metricTitle}>Images</Text>
+                    <Text style={styles.metricValue}>{metrics.total_images ?? inventory.total_images ?? 0}</Text>
+                  </View>
 
-          </View>
-          {/* Catalog Snapshot */}
+                </View>
 
-          <View style={styles.card}>
+                <View style={styles.recommendCard}>
+                  <Text style={styles.metricTitle}>Recommendation</Text>
+                  <Text style={styles.metricDesc}>
+                    Your highest leverage metric right now is shares. Make every post “shareable”: clear price, 3 images, short title, and a strong caption.
+                  </Text>
+                </View>
 
-            <View style={styles.rowBetween}>
-              <Text style={styles.smallTitle}>Inventory Intelligence</Text>
-              <Feather name="maximize-2" size={18} />
-            </View>
-
-            <Text style={styles.titleSmall}>Catalog snapshot</Text>
-
-            <Metric title="Total Posts" value={`${inventory.total_posts ?? 0}`} desc="" />
-            <Metric
-              title="Priced Posts"
-              value={`${inventory.priced_posts ?? 0}`}
-              desc={`${inventory.min_price ?? 0} min · ${inventory.max_price ?? 0} max`}
-            />
-            <Metric title="Catalog Value" value={`${inventory.catalog_value ?? 0}`} desc="Sum of all priced posts" />
-
-          </View>
-          {/* Social Signal */}
-
-          <View style={styles.card}>
-
-            <View style={styles.rowBetween}>
-              <Text style={styles.smallTitle}>Engagement</Text>
-              <Feather name="share-2" size={18} />
-            </View>
-
-            <Text style={styles.titleSmall}>Social signal</Text>
-
-            <View style={styles.metricRow}>
-
-              <View style={styles.metricHalf}>
-                <Text style={styles.metricTitle}>Total Shares</Text>
-                <Text style={styles.metricValue}>{metrics.total_shares ?? engagement.total_shares ?? 0}</Text>
               </View>
 
-              <View style={styles.metricHalf}>
-                <Text style={styles.metricTitle}>Images</Text>
-                <Text style={styles.metricValue}>{metrics.total_images ?? inventory.total_images ?? 0}</Text>
-              </View>
 
-            </View>
-
-            <View style={styles.recommendCard}>
-              <Text style={styles.metricTitle}>Recommendation</Text>
-              <Text style={styles.metricDesc}>
-                Your highest leverage metric right now is shares. Make every post “shareable”: clear price, 3 images, short title, and a strong caption.
+              <Text style={styles.footer}>
+                © 2026 Social Commerce SaaS · Business Console
               </Text>
-            </View>
-
-          </View>
-
-
-          <Text style={styles.footer}>
-            © 2026 Social Commerce SaaS · Business Console
-          </Text>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

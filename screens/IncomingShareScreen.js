@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ShareIntentModule, useShareIntentContext } from 'expo-share-intent';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LAST_COLLAB_REQUEST_ID_STORAGE_KEY = 'last_collab_request_id';
 
 const extractUrlFromText = (value = '') => {
   const match = value.match(/https?:\/\/\S+/i);
@@ -124,9 +127,34 @@ export default function IncomingShareScreen({ route }) {
       resetShareIntent();
     }
 
-    navigation.replace('addPost', {
-      sharedDraft,
-    });
+    const run = async () => {
+      const sharedUrl = String(sharedDraft?.socialUrl || '').trim();
+      if (sharedUrl) {
+        try {
+          const lastRequestId = await AsyncStorage.getItem(LAST_COLLAB_REQUEST_ID_STORAGE_KEY);
+          const parsedRequestId = Number(lastRequestId);
+
+          if (Number.isFinite(parsedRequestId) && parsedRequestId > 0) {
+            Alert.alert('Share received', `Opening request #${parsedRequestId}`);
+            navigation.replace('collaborationRequestDetail', {
+              requestId: parsedRequestId,
+              prefillSocialUrl: sharedUrl,
+            });
+            return;
+          }
+
+          Alert.alert('Share received', 'No request selected. Open a request first, then share again.');
+        } catch (e) {
+          Alert.alert('Share received', 'Failed to resolve request.');
+        }
+      }
+
+      navigation.replace('addPost', {
+        sharedDraft,
+      });
+    };
+
+    run();
   }, [error, fallbackDraft, hasFallbackDraft, hasNativePayload, hasShareIntent, isReady, navigation, resetShareIntent, shareIntent]);
 
   useEffect(() => {

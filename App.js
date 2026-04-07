@@ -20,6 +20,12 @@ const linking = {
     screens: {
       handleShare: 'handle-share',
       addPost: 'add-post',
+      collaborationRequestDetail: {
+        path: 'collaboration/requests/:requestId',
+        parse: {
+          requestId: (value) => Number(value),
+        },
+      },
     },
   },
   async getInitialURL() {
