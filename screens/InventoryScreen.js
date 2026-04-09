@@ -117,12 +117,21 @@ const InventoryScreen = ({ navigation }) => {
                             </Text>
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.newButton}
-                            onPress={() => navigation.navigate("addPost")}
-                        >
-                            <Text style={styles.newButtonText}>+ New</Text>
-                        </TouchableOpacity>
+                        <View style={styles.headerButtonColumn}>
+                            <TouchableOpacity
+                                style={styles.collabButton}
+                                onPress={() => navigation.navigate('collaborationRequests')}
+                            >
+                                <Text style={styles.collabButtonText}>Collaboration Requests</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.newButton}
+                                onPress={() => navigation.navigate("addPost")}
+                            >
+                                <Text style={styles.newButtonText}>+ New</Text>
+                            </TouchableOpacity>
+                        </View>
 
                     </View>
 
@@ -293,6 +302,24 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#6b7280",
         marginTop: 4
+    },
+
+    headerButtonColumn: {
+        alignItems: 'flex-end',
+        gap: 10
+    },
+
+    collabButton: {
+        backgroundColor: "#111827",
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 24
+    },
+
+    collabButtonText: {
+        fontWeight: "700",
+        color: "#ffffff",
+        fontSize: 12
     },
 
     newButton: {

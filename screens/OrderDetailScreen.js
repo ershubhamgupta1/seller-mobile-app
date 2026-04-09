@@ -328,46 +328,74 @@ export default function OrderDetailScreen() {
       </View>
     );
   };
-
   const SummaryCard = ({ orderData }) => (
     <View style={base.card}>
       <Text style={base.title}>Summary</Text>
 
       <View style={base.rowBetween}>
-        <Text style={base.label}>Shop subtotal</Text>
-        <Text style={base.value}>₹ {orderData?.shop_subtotal || '0'}</Text>
+        <Text style={base.label}>Subtotal</Text>
+        <Text style={base.value}>₹ {isInfluencer ? (orderData?.scope_subtotal ?? orderData?.collab_subtotal ?? orderData?.shop_subtotal ?? '0') : (orderData?.shop_subtotal ?? '0')}</Text>
       </View>
 
       {isInfluencer && (
         <>
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Delivery</Text>
-            <Text style={base.value}>₹ {orderData?.delivery_fee || orderData?.delivery || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.collab_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
           </View>
 
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Total paid</Text>
-            <Text style={base.value}>₹ {orderData?.total_paid || orderData?.total || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.collab_total_amount ?? orderData?.total_amount ?? '0'}</Text>
           </View>
 
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Platform fee (10%)</Text>
-            <Text style={base.value}>₹ {orderData?.platform_fee || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? orderData?.platform_fee ?? '0'}</Text>
           </View>
 
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Influencer cut (15%)</Text>
-            <Text style={base.value}>₹ {orderData?.influencer_cut || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.influencer_cut ?? '0'}</Text>
           </View>
 
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Your earnings</Text>
-            <Text style={base.value}>₹ {orderData?.your_earnings || orderData?.influencer_cut || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.your_earnings ?? orderData?.influencer_cut ?? '0'}</Text>
           </View>
 
           <View style={[base.rowBetween, { marginTop: 10 }]}>
             <Text style={base.label}>Customer paid (full order)</Text>
-            <Text style={base.value}>₹ {orderData?.customer_paid || orderData?.customer_paid_full_order || '0'}</Text>
+            <Text style={base.value}>₹ {orderData?.order_total_amount ?? orderData?.collab_total_amount ?? orderData?.customer_paid_full_order ?? orderData?.customer_paid ?? '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Net after fees</Text>
+            <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
+          </View>
+        </>
+      )}
+
+      {!isInfluencer && (
+        <>
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Delivery</Text>
+            <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Total paid</Text>
+            <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.total_amount ?? '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Platform fee</Text>
+            <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? '0'}</Text>
+          </View>
+
+          <View style={[base.rowBetween, { marginTop: 10 }]}>
+            <Text style={base.label}>Net after fees</Text>
+            <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
           </View>
         </>
       )}

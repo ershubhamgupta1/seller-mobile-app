@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import Header from "../components/Header";
 import { analytics, collaboration, shop } from "../services/api";
@@ -117,13 +118,14 @@ const Badge = ({ type = "success", icon, text }) => {
   );
 };
 
-const InfluencerAccountCard = ({ email, shopData }) => {
+const InfluencerAccountCard = ({ email, shopData, onRequestPromotion, promotionLoading }) => {
   const shopStatus = shopData?.verification_status || 'DRAFT';
+  const isPromoted = String(shopData?.promotion_status || '').toUpperCase() === 'APPROVED';
 
   return (
     <View style={base.card}>
       <Text style={base.label}>Account</Text>
-      <Text style={styles.influencerEmail}>{email || '—'}</Text>
+      <Text style={styles.accountEmail}>{email || '—'}</Text>
 
       <View style={styles.innerCard}>
         <Text style={styles.sectionTitle}>Shop status</Text>
@@ -142,24 +144,41 @@ const InfluencerAccountCard = ({ email, shopData }) => {
 
         <Text style={styles.url}>{shopData?.bio_link || '—'}</Text>
 
-        <Text style={styles.influencerNotPromoted}>Not promoted</Text>
+        {isPromoted ? (
+          <View style={styles.promotedPill}>
+            <Ionicons name="rocket-outline" size={16} color={styles.promotedPillText.color} />
+            <Text style={styles.promotedPillText}>Promoted</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.influencerNotPromoted}>Not promoted</Text>
 
-        <TouchableOpacity style={styles.influencerPromoBtn}>
-          <Text style={styles.influencerPromoBtnText}>Request promotion</Text>
-          <Feather name="arrow-up" size={16} color="#111827" />
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.influencerPromoBtn, promotionLoading && styles.promoBtnDisabled]}
+              onPress={onRequestPromotion}
+              disabled={promotionLoading}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.influencerPromoBtnText}>
+                {promotionLoading ? 'Requesting...' : 'Request promotion'}
+              </Text>
+              <Feather name="arrow-up" size={16} color="#111827" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
 };
 
-const AccountCard = ({ shopData }) => {
+const AccountCard = ({ email, shopData, onRequestPromotion, promotionLoading }) => {
   const shopStatus = shopData?.verification_status || 'PENDING';
+  const isPromoted = String(shopData?.promotion_status || '').toUpperCase() === 'APPROVED';
 
   return (
   <View style={base.card}>
     <Text style={base.label}>Account</Text>
-    {/* <Text style={styles.email}>{shopData?.email || 'Loading...'}</Text> */}
+    <Text style={styles.accountEmail}>{email || '—'}</Text>
 
     <View style={styles.innerCard}>
       <Text style={styles.sectionTitle}>Shop status</Text>
@@ -180,18 +199,27 @@ const AccountCard = ({ shopData }) => {
         {shopData?.bio_link || 'Loading...'}
       </Text>
 
-      <View style={styles.promotedRow}>
-        <Badge type="warning" icon="rocket-outline" text="Promoted" />
+      {isPromoted ? (
+        <View style={styles.promotedRow}>
+          <Badge type="warning" icon="rocket-outline" text="Promoted" />
 
-        <Text style={styles.promotedDesc}>
-          Shown first in customer trending feed
-        </Text>
-      </View>
-
-      <TouchableOpacity style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>Remove promotion</Text>
-        <Ionicons name="chevron-down" size={18} />
-      </TouchableOpacity>
+          <Text style={styles.promotedDesc}>
+            Shown first in customer trending feed
+          </Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.primaryButton, promotionLoading && styles.promoBtnDisabled]}
+          onPress={onRequestPromotion}
+          disabled={promotionLoading}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.primaryButtonText}>
+            {promotionLoading ? 'Requesting...' : 'Request promotion'}
+          </Text>
+          <Ionicons name="chevron-up" size={18} />
+        </TouchableOpacity>
+      )}
     </View>
   </View>
 );
@@ -204,7 +232,34 @@ const DashboardScreen = ({ navigation }) => {
   const [metrics, setMetrics] = useState({});
   const [shopData, setShopData] = useState({});
   const [collabCounts, setCollabCounts] = useState({ activeCollabs: 0 });
-  const { user } = useAuth();
+  const [promotionLoading, setPromotionLoading] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+
+  const resolveUserName = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const firstName = u?.first_name || u?.firstName;
+    const lastName = u?.last_name || u?.lastName;
+    const fullName = u?.name || u?.full_name || u?.fullName;
+    const email = u?.email;
+
+    if (typeof fullName === 'string' && fullName.trim()) return fullName.trim();
+
+    const joined = [firstName, lastName].filter(Boolean).join(' ').trim();
+    if (joined) return joined;
+
+    if (typeof email === 'string' && email.includes('@')) {
+      return email.split('@')[0];
+    }
+
+    return 'there';
+  };
+
+  const resolveUserEmail = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+    const email = u?.email;
+    return typeof email === 'string' ? email : '';
+  };
 
   const resolveAccountType = (authUser) => {
     const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
@@ -232,11 +287,19 @@ const DashboardScreen = ({ navigation }) => {
   const isInfluencer = resolveAccountType(user) === 'influencer';
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     fetchSummaryData();
     fetchShopData();
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchShopData = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     try {
       const response = await shop.getMyShop();
       let qrCode = await shop.getQRCode();
@@ -247,11 +310,20 @@ const DashboardScreen = ({ navigation }) => {
       const shopResponse = response?.shop || {};
       setShopData(shopResponse);
     } catch (error) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (!isAuthenticated || msg.includes('incorrect password') || msg.includes('unauthorized') || msg.includes('401')) {
+        return;
+      }
+
       console.error('Error fetching shop data:', error);
     }
   };
 
   const fetchSummaryData = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     try {
       const incomingReq = await collaboration.getIncomingRequests();
       const incomingList = Array.isArray(incomingReq)
@@ -266,6 +338,11 @@ const DashboardScreen = ({ navigation }) => {
       const res = await analytics.getSummary();
       setMetrics(res?.metrics || {});
     } catch (e) {
+      const msg = String(e?.message || '').toLowerCase();
+      if (!isAuthenticated || msg.includes('incorrect password') || msg.includes('unauthorized') || msg.includes('401')) {
+        return;
+      }
+
       console.error(e);
     }
   };
@@ -275,6 +352,23 @@ const DashboardScreen = ({ navigation }) => {
     await fetchSummaryData();
     await fetchShopData();
     setRefreshing(false);
+  };
+
+  const handleRequestPromotion = async () => {
+    if (promotionLoading) return;
+    try {
+      setPromotionLoading(true);
+      await shop.requestPromotion();
+      Alert.alert(
+        'Promotion requested',
+        'Your request has been submitted. We will review it shortly.'
+      );
+      await fetchShopData();
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Unable to request promotion');
+    } finally {
+      setPromotionLoading(false);
+    }
   };
 
   return (
@@ -295,6 +389,14 @@ const DashboardScreen = ({ navigation }) => {
         <View style={styles.content}>
           {isInfluencer ? (
             <>
+              <View style={styles.influencerWelcomeCard}>
+                <Text style={styles.influencerWelcomeEyebrow}>Influencer Dashboard</Text>
+                <Text style={styles.influencerWelcomeTitle}>Hello, {resolveUserName(user)}!</Text>
+                <Text style={styles.influencerWelcomeSubtitle}>
+                  Welcome back. Ready to post, share, and grow your storefront.
+                </Text>
+              </View>
+
               <View style={base.card}>
                 <Text style={styles.smallTitle}>Quick Actions</Text>
                 <Text style={base.title}>Run your storefront like a product</Text>
@@ -359,7 +461,12 @@ const DashboardScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <InfluencerAccountCard email={user?.email} shopData={shopData} />
+              <InfluencerAccountCard
+                email={resolveUserEmail(user)}
+                shopData={shopData}
+                onRequestPromotion={handleRequestPromotion}
+                promotionLoading={promotionLoading}
+              />
               <ProTipCard />
             </>
           ) : (
@@ -431,7 +538,12 @@ const DashboardScreen = ({ navigation }) => {
               </View>
 
               {/* ACCOUNT */}
-              <AccountCard shopData={shopData} />
+              <AccountCard
+                email={resolveUserEmail(user)}
+                shopData={shopData}
+                onRequestPromotion={handleRequestPromotion}
+                promotionLoading={promotionLoading}
+              />
               <ProTipCard />
             </>
           )}
@@ -457,6 +569,35 @@ const styles = StyleSheet.create({
 
   content: {
     padding: 20,
+  },
+
+  influencerWelcomeCard: {
+    backgroundColor: '#fff7ed',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#f3d6c8',
+    marginBottom: SPACING.md,
+  },
+
+  influencerWelcomeEyebrow: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 10,
+  },
+
+  influencerWelcomeTitle: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 10,
+  },
+
+  influencerWelcomeSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: COLORS.textSecondary,
   },
 
   smallTitle: {
@@ -592,7 +733,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  influencerEmail: {
+  accountEmail: {
     fontSize: 13,
     color: COLORS.textPrimary,
     marginTop: 4,
@@ -620,6 +761,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+
+  promoBtnDisabled: {
+    opacity: 0.6,
+  },
+
+  promotedPill: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    backgroundColor: '#fff7ed',
+    gap: 8,
+  },
+
+  promotedPillText: {
+    color: '#d97706',
+    fontWeight: '700',
+    fontSize: 15,
   },
 
   influencerPromoBtnText: {

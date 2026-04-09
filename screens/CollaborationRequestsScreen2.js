@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -12,9 +12,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import Header from '../components/Header';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { collaboration } from '../services/api';
 
 const getStatusColor = (status) => {
@@ -32,7 +31,7 @@ const formatCurrency = (currency, amount) => {
   return `${normalized} ${value}`;
 };
 
-const ClosetScreen = ({ navigation }) => {
+const CollaborationRequestsScreen2 = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
 
@@ -40,15 +39,7 @@ const ClosetScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [outgoingRequests, setOutgoingRequests] = useState([]);
-
-  const spotlightLinks = useMemo(
-    () => [
-      'https://ekom.in/closet/invite/collections',
-      'https://ekom.in/closet/invite/favorites',
-      'https://ekom.in/closet/invite/brand-edit',
-    ],
-    []
-  );
+  const [respondingById, setRespondingById] = useState({});
 
   const fetchRequests = useCallback(async (opts = {}) => {
     const isRefresh = opts.refresh === true;
@@ -60,8 +51,8 @@ const ClosetScreen = ({ navigation }) => {
         collaboration.getOutgoingRequests(),
       ]);
 
-      setIncomingRequests(incomingRes?.requests || []);
-      setOutgoingRequests(outgoingRes?.requests || []);
+      setIncomingRequests(incomingRes?.requests || incomingRes?.data?.requests || []);
+      setOutgoingRequests(outgoingRes?.requests || outgoingRes?.data?.requests || []);
     } catch (e) {
       Alert.alert('Error', e?.message || 'Failed to load collaboration requests');
     } finally {
@@ -74,48 +65,68 @@ const ClosetScreen = ({ navigation }) => {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleCopyLink = async (value) => {
-    await Clipboard.setStringAsync(value);
-    Alert.alert('Copied', 'Closet link copied');
-  };
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchRequests({ refresh: true });
   }, [fetchRequests]);
 
-  const handleSearchCloset = () => {
-    navigation.navigate('collab-search');
-  };
+  const handleRespond = useCallback(
+    async (req, action) => {
+      const requestId = req?.id;
+      if (!requestId) {
+        Alert.alert('Error', 'Missing request id');
+        return;
+      }
+
+      const normalizedAction = String(action || '').toLowerCase();
+      if (normalizedAction !== 'accept' && normalizedAction !== 'reject') {
+        Alert.alert('Error', 'Invalid action');
+        return;
+      }
+
+      try {
+        setRespondingById((prev) => ({ ...prev, [String(requestId)]: true }));
+        await collaboration.respondToRequest(requestId, normalizedAction);
+        await fetchRequests({ refresh: true });
+      } catch (e) {
+        Alert.alert('Error', e?.message || 'Failed to respond to request');
+      } finally {
+        setRespondingById((prev) => ({ ...prev, [String(requestId)]: false }));
+      }
+    },
+    [fetchRequests]
+  );
 
   const allRequests = useMemo(
-    () => [...incomingRequests, ...outgoingRequests],
+    () => [...(incomingRequests || []), ...(outgoingRequests || [])],
     [incomingRequests, outgoingRequests]
   );
 
   const combinedRequests = useMemo(() => {
-    const items = [...allRequests];
-    items.sort((a, b) => {
-      const aTime = Date.parse(a?.created_at || a?.createdAt || a?.updated_at || a?.updatedAt || '') || 0;
-      const bTime = Date.parse(b?.created_at || b?.createdAt || b?.updated_at || b?.updatedAt || '') || 0;
-      return bTime - aTime;
-    });
-    return items;
-  }, [allRequests]);
+    const incoming = (incomingRequests || []).map((r) => ({ ...r, __direction: 'incoming' }));
+    const outgoing = (outgoingRequests || []).map((r) => ({ ...r, __direction: 'outgoing' }));
+    return [...incoming, ...outgoing];
+  }, [incomingRequests, outgoingRequests]);
 
   const acceptedCount = useMemo(
     () => allRequests.filter((r) => String(r?.status || '').toUpperCase() === 'ACCEPTED').length,
     [allRequests]
   );
 
-  const renderRequestCard = (req) => {
+  const renderRequestCard = (req, opts = {}) => {
+    const isIncoming = opts.incoming === true || req?.__direction === 'incoming';
     const status = req?.status;
     const statusPalette = getStatusColor(status);
     const post = req?.post || {};
-    const brandName = post?.brand?.name ? `By ${post.brand.name}` : '';
     const imageUrl = post?.image_url;
     const influencerName = req?.influencer?.name || '';
+    const brandName = req?.brand?.name || post?.brand?.name || '';
     const initiatedBy = req?.initiated_by ? String(req.initiated_by) : '';
+    const requestId = req?.id;
+    const responding = requestId != null ? respondingById[String(requestId)] === true : false;
+    const isPending = String(status || '').toUpperCase() === 'PENDING';
+
+    const subtitle = isIncoming ? influencerName || initiatedBy : brandName || initiatedBy;
 
     return (
       <TouchableOpacity
@@ -137,43 +148,34 @@ const ClosetScreen = ({ navigation }) => {
 
         <View style={styles.productBody}>
           <Text style={styles.productTitle}>{post?.title || 'Untitled'}</Text>
-          {!!brandName && <Text style={styles.productBrand}>{brandName}</Text>}
+          {!!subtitle && <Text style={styles.productSubTitle}>{subtitle}</Text>}
 
           <View style={styles.requestMetaRow}>
-            {/* <Text style={styles.requestMetaText} numberOfLines={1}>
+            <Text style={styles.requestMetaText} numberOfLines={1}>
               {formatCurrency(post?.currency, post?.price)}
-            </Text> */}
-            {/* {!!influencerName && (
-              <Text style={styles.requestMetaText} numberOfLines={1}>
-                {influencerName}
-              </Text>
-            )} */}
-            {!!initiatedBy && (
-              <Text style={styles.requestMetaText} numberOfLines={1}>
-                {initiatedBy}
-              </Text>
-            )}
+            </Text>
           </View>
 
           {!!req?.message && <Text style={styles.productNote}>{req.message}</Text>}
 
-          <View style={styles.productFooter}>
-            {/* <TouchableOpacity
-              style={styles.productLinkButton}
-              onPress={() => handleCopyLink(String(req?.id))}
-            >
-              <FontAwesome5 name="copy" size={13} color="#111827" />
-              <Text style={styles.productLinkButtonText}>Copy request id</Text>
-            </TouchableOpacity> */}
-
-            {/* <TouchableOpacity
-              style={styles.productViewButton}
-              onPress={() => navigation.navigate('feedScreen')}
-            >
-              <Text style={styles.productViewButtonText}>View</Text>
-              <Feather name="chevron-right" size={16} color="#111827" />
-            </TouchableOpacity> */}
-          </View>
+          {isIncoming && isPending ? (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.acceptBtn, responding && styles.actionBtnDisabled]}
+                disabled={responding}
+                onPress={() => handleRespond(req, 'accept')}
+              >
+                <Text style={[styles.actionBtnText, styles.acceptBtnText]}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.rejectBtn, responding && styles.actionBtnDisabled]}
+                disabled={responding}
+                onPress={() => handleRespond(req, 'reject')}
+              >
+                <Text style={[styles.actionBtnText, styles.rejectBtnText]}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -197,57 +199,23 @@ const ClosetScreen = ({ navigation }) => {
 
         <View style={[styles.content, isTablet && styles.contentTablet]}>
           <View style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroCopyWrap}>
-                <Text style={styles.eyebrow}>Closet</Text>
-                {/* <Text style={styles.heroTitle}>Collaborations</Text> */}
-                <Text style={styles.heroDescription}>
-                  See collaboration requests from brands and keep accepted resale links ready for your audience.
-                </Text>
-              </View>
-
-              <TouchableOpacity style={styles.searchBtn} onPress={handleSearchCloset}>
-                <Feather name="search" size={16} color="#111827" />
-                <Text style={styles.searchBtnText}>Search Collabs</Text>
-              </TouchableOpacity>
+            <View style={styles.heroCopyWrap}>
+              <Text style={styles.eyebrow}>Inventory</Text>
+              <Text style={styles.heroTitle}>Collaboration requests</Text>
+              <Text style={styles.heroDescription}>
+                Review both received and sent collaboration requests for your products.
+              </Text>
             </View>
-
             <View style={styles.metricRow}>
               <View style={styles.metricChip}>
                 <Feather name="check-circle" size={14} color="#0f766e" />
                 <Text style={styles.metricChipText}>{acceptedCount} accepted</Text>
               </View>
               <View style={styles.metricChip}>
-                <Feather name="link" size={14} color="#7c3aed" />
-                <Text style={styles.metricChipText}>{allRequests.length} requests</Text>
+                <Feather name="layers" size={14} color="#7c3aed" />
+                <Text style={styles.metricChipText}>{combinedRequests.length} total</Text>
               </View>
             </View>
-          </View>
-
-          <View style={styles.linksCard}>
-            <View style={styles.linksHeader}>
-              <View style={styles.linksCopyWrap}>
-                <Text style={styles.linksTitle}>Connect reel/post links to your storefront</Text>
-                <Text style={styles.linksDescription}>
-                  If a customer pastes one of these links in feed search and no product matches, they will be redirected to your customer storefront.
-                </Text>
-              </View>
-
-              {/* <TouchableOpacity
-                style={styles.copyPrimaryButton}
-                onPress={() => handleCopyLink(spotlightLinks[0])}
-              >
-                <Feather name="copy" size={14} color="#fff" />
-                <Text style={styles.copyPrimaryButtonText}>Copy Link</Text>
-              </TouchableOpacity> */}
-            </View>
-
-            {/* {spotlightLinks.map((item) => (
-              <TouchableOpacity key={item} style={styles.linkPill} onPress={() => handleCopyLink(item)}>
-                <Text style={styles.linkPillText} numberOfLines={1}>{item}</Text>
-                <Feather name="copy" size={14} color="#6b7280" />
-              </TouchableOpacity>
-            ))} */}
           </View>
 
           {loading ? (
@@ -262,11 +230,15 @@ const ClosetScreen = ({ navigation }) => {
               </View> */}
               {combinedRequests.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <Text style={styles.emptyTitle}>No requests</Text>
-                  <Text style={styles.emptyDescription}>Incoming and outgoing collaboration requests will show up here.</Text>
+                  <Text style={styles.emptyTitle}>No requests yet</Text>
+                  <Text style={styles.emptyDescription}>
+                    Incoming and outgoing collaboration requests will show up here.
+                  </Text>
                 </View>
               ) : (
-                combinedRequests.map(renderRequestCard)
+                combinedRequests.map((req) =>
+                  renderRequestCard(req, { incoming: req?.__direction === 'incoming' })
+                )
               )}
             </View>
           )}
@@ -305,9 +277,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  heroTopRow: {
-    gap: 14,
-  },
   heroCopyWrap: {
     flex: 1,
   },
@@ -327,21 +296,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: '#4b5563',
-  },
-  searchBtn: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  searchBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
   },
   metricRow: {
     flexDirection: 'row',
@@ -364,64 +318,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#374151',
-  },
-  linksCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  linksHeader: {
-    gap: 12,
-    marginBottom: 12,
-  },
-  linksCopyWrap: {
-    flex: 1,
-  },
-  linksTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  linksDescription: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#6b7280',
-  },
-  copyPrimaryButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  copyPrimaryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  linkPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    backgroundColor: '#f9fafb',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  linkPillText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#4b5563',
   },
   listSection: {
     gap: 16,
@@ -504,7 +400,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  productBrand: {
+  productSubTitle: {
     fontSize: 13,
     color: '#6b7280',
     marginTop: 4,
@@ -526,37 +422,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6b7280',
   },
-  productFooter: {
+  actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
     marginTop: 14,
   },
-  productLinkButton: {
-    flexDirection: 'row',
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: '#f9fafb',
+    justifyContent: 'center',
+    borderWidth: 2,
   },
-  productLinkButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
+  actionBtnDisabled: {
+    opacity: 0.6,
   },
-  productViewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  acceptBtn: {
+    backgroundColor: '#e7f6ef',
+    borderColor: '#b9e7d1',
   },
-  productViewButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+  rejectBtn: {
+    backgroundColor: '#fdecef',
+    borderColor: '#f6b3bd',
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  acceptBtnText: {
+    color: '#065f46',
+  },
+  rejectBtnText: {
+    color: '#9f1239',
   },
 });
 
-export default ClosetScreen;
+export default CollaborationRequestsScreen2;

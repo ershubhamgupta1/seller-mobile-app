@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   Keyboard,
   ScrollView,
   StyleSheet,
@@ -40,6 +41,10 @@ const CollabSearchScreen = ({ navigation }) => {
 
   const [postsLoading, setPostsLoading] = useState(false);
   const [posts, setPosts] = useState([]);
+  const [requestStatusByPostId, setRequestStatusByPostId] = useState({});
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [messageByPostId, setMessageByPostId] = useState({});
+  const [sendingByPostId, setSendingByPostId] = useState({});
 
   const normalizeShopSearchResponse = (res) => {
     if (!res) return [];
@@ -65,15 +70,88 @@ const CollabSearchScreen = ({ navigation }) => {
 
   const getShopId = (s) => s?.id ?? s?.shop_id ?? s?._id;
 
+  const getPostId = (p) => p?.id ?? p?.post_id ?? p?._id;
+
+  const normalizeRequestStatus = (value) => {
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'ACCEPTED') return 'Accepted';
+    if (normalized === 'PENDING') return 'Pending';
+    if (normalized === 'REJECTED') return 'Rejected';
+    return normalized ? normalized[0] + normalized.slice(1).toLowerCase() : '';
+  };
+
+  const getStatusDotColor = (value) => {
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'ACCEPTED') return '#10b981';
+    if (normalized === 'PENDING') return '#f59e0b';
+    if (normalized === 'REJECTED') return '#ef4444';
+    return '#9ca3af';
+  };
+
+  const buildRequestStatusIndex = (requests) => {
+    const next = {};
+    (requests || []).forEach((r) => {
+      const postId = r?.post?.id ?? r?.post_id ?? r?.post?.post_id ?? r?.post?._id;
+      if (!postId) return;
+      const raw = r?.status;
+      next[String(postId)] = raw;
+    });
+    return next;
+  };
+
+  const handleSendRequest = async (postObj) => {
+    const pid = getPostId(postObj);
+    if (pid == null) {
+      Alert.alert('Error', 'Unable to send request: missing post id');
+      return;
+    }
+
+    const message = String(messageByPostId[String(pid)] || '').trim();
+
+    try {
+      setSendingByPostId((prev) => ({ ...prev, [String(pid)]: true }));
+      await collaboration.createRequest({
+        post_id: pid,
+        ...(message ? { message } : {}),
+      });
+
+      setMessageByPostId((prev) => ({ ...prev, [String(pid)]: '' }));
+      await fetchOutgoingRequestIndex();
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Failed to send collaboration request');
+    } finally {
+      setSendingByPostId((prev) => ({ ...prev, [String(pid)]: false }));
+    }
+  };
+
+  const fetchOutgoingRequestIndex = async () => {
+    try {
+      setRequestsLoading(true);
+      const [outgoingRes, incomingRes] = await Promise.all([
+        collaboration.getOutgoingRequests(),
+        collaboration.getIncomingRequests(),
+      ]);
+
+      const outgoing = outgoingRes?.requests || outgoingRes?.data?.requests || [];
+      const incoming = incomingRes?.requests || incomingRes?.data?.requests || [];
+      setRequestStatusByPostId(buildRequestStatusIndex([...(outgoing || []), ...(incoming || [])]));
+    } catch (e) {
+      setRequestStatusByPostId({});
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
   const fetchShopPosts = async (shopId, shopObj) => {
     if (!shopId) return;
     try {
       setSelectedShop(shopObj || null);
       setPosts([]);
       setPostsLoading(true);
+      setRequestStatusByPostId({});
 
+      await fetchOutgoingRequestIndex();
       const res = await collaboration.getBusinessShopPosts(shopId);
-      console.log('got searched business posts--------', res)
       setPosts(res?.posts || res?.data?.posts || []);
     } catch (e) {
       setPosts([]);
@@ -203,8 +281,8 @@ const CollabSearchScreen = ({ navigation }) => {
                     </View>
                   ) : (
                     posts.map((p, idx) => {
-                      console.log('searched post=========', p);
-                      const postKey = String(p?.id ?? p?._id ?? `${idx}`);
+                      const pid = getPostId(p);
+                      const postKey = String(pid ?? `${idx}`);
                       const img = p?.image_url || p?.thumbnail_url || p?.images?.[0];
                       const title = p?.title || 'Untitled';
                       const subtitle = p?.subtitle || p?.name || p?.product_name || title;
@@ -212,8 +290,23 @@ const CollabSearchScreen = ({ navigation }) => {
                       const currency = p?.currency || 'INR';
                       const platform =
                         p?.social_platform || p?.platform || p?.template || p?.source || 'Instagram';
-                      const statusRaw = p?.status || p?.collab_status || p?.request_status;
-                      const status = statusRaw ? String(statusRaw) : 'Accepted';
+                      const statusRaw =
+                        (pid != null ? requestStatusByPostId[String(pid)] : undefined) ||
+                        p?.status ||
+                        p?.collab_status ||
+                        p?.request_status ||
+                        '';
+                      const normalizedStatus = normalizeRequestStatus(statusRaw);
+                      const statusLabel = normalizedStatus || 'Request';
+                      const dotColor = getStatusDotColor(statusRaw);
+                      const hasOutgoingRequest =
+                        pid != null &&
+                        Object.prototype.hasOwnProperty.call(requestStatusByPostId, String(pid));
+                      const showRequestComposer =
+                        pid != null && !requestsLoading && !hasOutgoingRequest;
+                      const messageValue =
+                        pid != null ? String(messageByPostId[String(pid)] || '') : '';
+                      const sending = pid != null ? sendingByPostId[String(pid)] === true : false;
 
                       return (
                         <View key={postKey} style={styles.postCard}>
@@ -245,14 +338,51 @@ const CollabSearchScreen = ({ navigation }) => {
                             )}
 
                             <View style={styles.postFooterRow}>
-                              <View style={styles.statusPill}>
-                                <View style={styles.statusDot} />
-                                <Text style={styles.statusPillText} numberOfLines={1}>
-                                  {status}
-                                </Text>
-                                <Feather name="arrow-up-right" size={16} color={COLORS.textPrimary} />
-                              </View>
+                              {showRequestComposer ? null : (
+                                <View style={styles.statusPill}>
+                                  <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                                  <Text style={styles.statusPillText} numberOfLines={1}>
+                                    {requestsLoading ? 'Loading…' : statusLabel}
+                                  </Text>
+                                  <Feather name="arrow-up-right" size={16} color={COLORS.textPrimary} />
+                                </View>
+                              )}
                             </View>
+
+                            {showRequestComposer && (
+                              <View style={styles.requestComposerWrap}>
+                                <TextInput
+                                  value={messageValue}
+                                  onChangeText={(text) => {
+                                    if (pid == null) return;
+                                    setMessageByPostId((prev) => ({
+                                      ...prev,
+                                      [String(pid)]: text,
+                                    }));
+                                  }}
+                                  placeholder="Optional message for brand..."
+                                  placeholderTextColor="#9ca3af"
+                                  style={styles.requestMessageInput}
+                                  multiline
+                                />
+
+                                <TouchableOpacity
+                                  activeOpacity={0.9}
+                                  style={[styles.sendRequestBtn, sending && styles.sendRequestBtnDisabled]}
+                                  onPress={() => handleSendRequest(p)}
+                                  disabled={sending}
+                                >
+                                  {sending ? (
+                                    <ActivityIndicator size="small" color={COLORS.textPrimary} />
+                                  ) : (
+                                    <Feather name="send" size={18} color={COLORS.textPrimary} />
+                                  )}
+                                  <Text style={styles.sendRequestBtnText}>
+                                    {sending ? 'Sending…' : 'Send Request'}
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
                           </View>
                         </View>
                       );
@@ -556,6 +686,41 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontSize: 12,
     fontWeight: '500',
+    color: COLORS.textPrimary,
+  },
+
+  requestComposerWrap: {
+    marginTop: 14,
+    gap: 12,
+  },
+  requestMessageInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    minHeight: 54,
+  },
+  sendRequestBtn: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: COLORS.buttonEnd,
+  },
+  sendRequestBtnDisabled: {
+    opacity: 0.7,
+  },
+  sendRequestBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.textPrimary,
   },
 

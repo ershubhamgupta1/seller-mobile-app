@@ -94,14 +94,12 @@ const parseUploadResponse = async (response) => {
 };
 
 const uploadRequest = async (endpoint, formData) => {
-  console.log('ready to call uploadRequest======', endpoint);
   const url = `${API_BASE}${endpoint}`;
   const token = await getAuthToken();
   const headers = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  console.log('url==========', url);
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -109,7 +107,6 @@ const uploadRequest = async (endpoint, formData) => {
       body: formData,
     });
     const responseData = await parseUploadResponse(response);
-    console.log('response json==========', responseData);
 
 
     if (!response.ok) {
@@ -142,7 +139,6 @@ const uploadRequest = async (endpoint, formData) => {
 const apiRequest = async (endpoint, options = {}) => {
   
   const url = `${API_BASE}${endpoint}`;
-  console.log('url==========', url);
   const token = await getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -159,14 +155,13 @@ const apiRequest = async (endpoint, options = {}) => {
   };
 
   try {
-    console.log('config========', config)
-
     const response = await fetch(url, config);
-    console.log('response========', response)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const rawErrorMessage = errorData.message || errorData.error || errorData.code || '';
       const normalizedErrorMessage = String(rawErrorMessage).toLowerCase();
+      const isAuthEndpoint =
+        endpoint.includes('/api/business/auth/login') || endpoint.includes('/api/business/auth/register');
       const isExpectedAuthFailure =
         normalizedErrorMessage.includes('invalid_credentials') ||
         normalizedErrorMessage.includes('invalid credential') ||
@@ -174,6 +169,7 @@ const apiRequest = async (endpoint, options = {}) => {
         normalizedErrorMessage.includes('user not found') ||
         normalizedErrorMessage.includes('invalid password') ||
         normalizedErrorMessage.includes('invalid email') ||
+        (isAuthEndpoint && normalizedErrorMessage.includes('validation_error')) ||
         (response.status === 401 && !token);
       const errorMessage =
         isExpectedAuthFailure
@@ -239,10 +235,14 @@ export const healthCheck = () => apiRequest('/api/health');
 
 // Business Auth
 export const businessAuth = {
-  register: (email, password) => 
+  register: (email, password, accountType) => 
     apiRequest('/api/business/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        ...(accountType ? { account_type: accountType } : {}),
+      }),
     }),
 
   login: async (email, password) => {
@@ -286,6 +286,11 @@ export const shop = {
     apiRequest('/api/business/shops/me', {
       method: 'POST',
       body: JSON.stringify(shopData),
+    }),
+
+  requestPromotion: () =>
+    apiRequest('/api/business/shops/me/promote', {
+      method: 'POST',
     }),
 
   getQRCode: () => apiRequest('/api/business/shops/me/qr'),
@@ -378,6 +383,24 @@ export const collaboration = {
   getOutgoingRequests: () => apiRequest('/api/business/collaboration/requests/outgoing'),
   getIncomingRequests: () => apiRequest('/api/business/collaboration/requests/incoming'),
   getRequestDetail: (requestId) => apiRequest(`/api/business/collaboration/requests/${requestId}`),
+  respondToRequest: (requestId, action) =>
+    apiRequest(`/api/business/collaboration/requests/${requestId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    }),
+  createRequest: ({ post_id, influencer_shop_id, message } = {}) =>
+    apiRequest('/api/business/collaboration/requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        post_id,
+        ...(influencer_shop_id != null ? { influencer_shop_id } : {}),
+        ...(message != null ? { message } : {}),
+      }),
+    }),
+  searchInfluencers: (query) =>
+    apiRequest(
+      `/api/business/collaboration/influencers?q=${encodeURIComponent(String(query || ''))}`
+    ),
   searchBusinessShops: (query) =>
     apiRequest(
       `/api/business/collaboration/business-shops?q=${encodeURIComponent(String(query || ''))}`

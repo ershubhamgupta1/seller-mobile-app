@@ -821,12 +821,12 @@ export default function VerificationScreen() {
             </>
           )}
         </View>
-        <View style={[styles.card, { marginBottom: 40 }]}>
+        {/* <View style={[styles.card, { marginBottom: 40 }]}>
           <Text style={styles.sectionTitle}>Note</Text>
           <Text style={styles.noteText}>
             Admin approval/rejection workflow will be built in the Super Admin Hub next.
           </Text>
-        </View>
+        </View> */}
       {/* ================= FORM SECTION ================= */}
       </ScrollView>
     </SafeAreaView>

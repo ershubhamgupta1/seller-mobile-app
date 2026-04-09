@@ -399,7 +399,6 @@ const ShopProfileScreen = ({ navigation }) => {
         .map((value) => (value || '').trim())
         .filter(Boolean);
       // API call to update shop profile data only
-      console.log('isInfluencer========', isInfluencer)
       const profileData = isInfluencer
         ? {
             name: formData.name,
@@ -447,8 +446,6 @@ const ShopProfileScreen = ({ navigation }) => {
             // shop_photo_urls: cleanedShopPhotoUrls
           };
       
-          console.log('profileData===========', profileData)
-
       await shop.createOrUpdateShop(profileData);
       
       setShopData({ ...shopData, ...profileData });
@@ -727,7 +724,7 @@ const ShopProfileScreen = ({ navigation }) => {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <Text>Unified shop identity</Text>
-                <Text style={styles.sectionTitle}>{isInfluencer ? 'Influencer profile' : 'Shop Profile'}</Text>
+                {/* <Text style={styles.sectionTitle}>{isInfluencer ? 'Influencer profile' : 'Shop Profile'}</Text> */}
                 <Text style={styles.sectionDescription}>This powers your single QR code and your bio-link storefront</Text>
               </View>
               {!isEditingProfile ? (
@@ -1395,7 +1392,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>Tag Line</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={styles.influencerInput}
                       value={formData.tagline}
                       onChangeText={(text) => setFormData({ ...formData, tagline: text })}
                       placeholder="Your shop's tag line"
@@ -1414,7 +1411,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>Known For</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={styles.influencerInput}
                       value={formData.known_for}
                       onChangeText={(text) => setFormData({ ...formData, known_for: text })}
                       placeholder="What your shop is known for"
@@ -1433,7 +1430,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>Your story</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={isInfluencer ? [styles.influencerInput, styles.influencerTextArea] : [styles.input, styles.textArea]}
+                      style={[styles.influencerInput, styles.influencerTextArea]}
                       value={formData.story}
                       onChangeText={(text) => setFormData({ ...formData, story: text })}
                       placeholder={isInfluencer ? "Tell your influencer story" : "Tell your shop's story"}
@@ -1486,7 +1483,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>IFSC Code</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={styles.influencerInput}
                       value={formData.payout_ifsc_code || ''}
                       onChangeText={(text) => setFormData({ ...formData, payout_ifsc_code: text })}
                       placeholder="Enter IFSC Code"
@@ -1505,7 +1502,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>Account Number</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={styles.influencerInput}
                       value={formData.payout_account_number || ''}
                       onChangeText={(text) => setFormData({ ...formData, payout_account_number: text })}
                       placeholder="Enter account number"
@@ -1526,7 +1523,7 @@ const ShopProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>UPI ID</Text>
                   {isEditingProfile ? (
                     <TextInput
-                      style={styles.input}
+                      style={styles.influencerInput}
                       value={formData.payout_upi_id || ''}
                       onChangeText={(text) => setFormData({ ...formData, payout_upi_id: text })}
                       placeholder="Enter upi id"

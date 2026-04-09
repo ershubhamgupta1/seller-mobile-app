@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { API_BASE, inventory, shop, uploads } from "../services/api";
+import { API_BASE, collaboration, inventory, shop, uploads } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -339,6 +339,13 @@ export default function AddPostScreen({ route }) {
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [bulkActionLoading, setBulkActionLoading] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [influencerQuery, setInfluencerQuery] = useState("");
+  const [influencerSearching, setInfluencerSearching] = useState(false);
+  const [influencerResults, setInfluencerResults] = useState([]);
+  const [selectedInfluencer, setSelectedInfluencer] = useState(null);
+  const [collabMessage, setCollabMessage] = useState("");
+  const [collabSending, setCollabSending] = useState(false);
+  const [sentRequestsForPost, setSentRequestsForPost] = useState([]);
   const [shopSocialHandles, setShopSocialHandles] = useState({
     instagram: "",
     facebook: "",
@@ -346,6 +353,103 @@ export default function AddPostScreen({ route }) {
     shipsInternationally: false,
   });
   const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
+
+  const postId = useMemo(() => post?.id ?? post?.post_id ?? post?._id, [post]);
+
+  const normalizeInfluencerSearchResponse = (res) => {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.influencers)) return res.influencers;
+    if (Array.isArray(res?.results)) return res.results;
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.influencers)) return res.data.influencers;
+    if (Array.isArray(res?.data?.results)) return res.data.results;
+    if (Array.isArray(res?.data?.data)) return res.data.data;
+    return [];
+  };
+
+  const getInfluencerId = (i) => i?.shop_id ?? i?.influencer_shop_id ?? i?.id ?? i?._id;
+
+  const getInfluencerLabel = (i) => {
+    const name = i?.name || i?.shop_name || i?.title || 'Influencer';
+    const username = i?.username || i?.handle || i?.slug;
+    const city = i?.city || i?.location || '';
+    const handleText = username ? `@${String(username).replace(/^@/, '')}` : '';
+    const suffix = city ? ` · ${city}` : '';
+    return `${String(name)}${handleText ? ` (${handleText})` : ''}${suffix}`;
+  };
+
+  const fetchSentRequestsForPost = useCallback(async () => {
+    if (!isEditMode || postId == null) return;
+    try {
+      const res = await collaboration.getOutgoingRequests();
+      const requests = res?.requests || res?.data?.requests || [];
+      const filtered = (requests || []).filter((r) => {
+        const pid = r?.post?.id ?? r?.post_id ?? r?.post?.post_id ?? r?.post?._id;
+        return pid != null && String(pid) === String(postId);
+      });
+      setSentRequestsForPost(filtered);
+    } catch (e) {
+      setSentRequestsForPost([]);
+    }
+  }, [isEditMode, postId]);
+
+  useEffect(() => {
+    fetchSentRequestsForPost();
+  }, [fetchSentRequestsForPost]);
+
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    const q = String(influencerQuery || '').trim();
+    if (q.length < 2) {
+      setInfluencerResults([]);
+      return;
+    }
+
+    const handle = setTimeout(async () => {
+      try {
+        setInfluencerSearching(true);
+        const cleaned = q.replace(/^@/, '');
+        const res = await collaboration.searchInfluencers(cleaned);
+        setInfluencerResults(normalizeInfluencerSearchResponse(res));
+      } catch (e) {
+        setInfluencerResults([]);
+      } finally {
+        setInfluencerSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(handle);
+  }, [influencerQuery, isEditMode]);
+
+  const handleSendCollabRequest = useCallback(async () => {
+    if (!isEditMode || postId == null) {
+      Alert.alert('Error', 'Open an existing post to send collaboration requests.');
+      return;
+    }
+
+    const influencerId = getInfluencerId(selectedInfluencer);
+    if (influencerId == null) {
+      Alert.alert('Error', 'Please select an influencer');
+      return;
+    }
+
+    try {
+      setCollabSending(true);
+      await collaboration.createRequest({
+        post_id: postId,
+        influencer_shop_id: influencerId,
+        ...(collabMessage.trim() ? { message: collabMessage.trim() } : {}),
+      });
+      setCollabMessage('');
+      await fetchSentRequestsForPost();
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Failed to send collaboration request');
+    } finally {
+      setCollabSending(false);
+    }
+  }, [collabMessage, fetchSentRequestsForPost, isEditMode, postId, selectedInfluencer]);
 
   useEffect(() => {
     if (isEditMode || !sharedDraft?.receivedAt || appliedSharedDraftRef.current === sharedDraft.receivedAt) {
@@ -381,7 +485,6 @@ export default function AddPostScreen({ route }) {
       try {
         const response = await shop.getMyShop();
         const shopResponse = response?.shop || {};
-        // console.log('shopResponse============', shopResponse);
         if (!isMounted) {
           return;
         }
@@ -597,7 +700,6 @@ export default function AddPostScreen({ route }) {
     // if (expiryDateValue) {
     //   postData.expiry_date = expiryDateValue;
     // }
-    console.log('postData===========', postData);
     return inventory.createPost(postData);
   };
 
@@ -924,7 +1026,6 @@ export default function AddPostScreen({ route }) {
 
       let createdCount = 0;
       const failedRows = [];
-      console.log('rows=========', rows);
       for (const row of rows) {
         try {
           await createPostFromCsvRow(row.values);
@@ -1375,6 +1476,102 @@ export default function AddPostScreen({ route }) {
 
           </View>
 
+          {isEditMode ? (
+            <View style={styles.collabCard}>
+              <Text style={styles.collabEyebrow}>Collaborations</Text>
+              <Text style={styles.collabTitle}>Request influencer promotion</Text>
+              <Text style={styles.collabDescription}>
+                Search by influencer name or username and send a collaboration request for this product.
+              </Text>
+
+              <TextInput
+                style={styles.collabSearchInput}
+                value={influencerQuery}
+                onChangeText={setInfluencerQuery}
+                placeholder="Search influencers"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              {influencerSearching ? (
+                <View style={styles.collabLoadingRow}>
+                  <ActivityIndicator size="small" color="#111827" />
+                  <Text style={styles.collabLoadingText}>Searching...</Text>
+                </View>
+              ) : null}
+
+              {(influencerResults || []).slice(0, 5).map((item) => {
+                const iid = getInfluencerId(item);
+                const selectedId = getInfluencerId(selectedInfluencer);
+                const isSelected = iid != null && selectedId != null && String(iid) === String(selectedId);
+
+                return (
+                  <TouchableOpacity
+                    key={String(iid ?? getInfluencerLabel(item))}
+                    style={[styles.collabResultPill, isSelected && styles.collabResultPillSelected]}
+                    activeOpacity={0.9}
+                    onPress={() => setSelectedInfluencer(item)}
+                  >
+                    <Text style={styles.collabResultText} numberOfLines={1}>
+                      {getInfluencerLabel(item)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <TextInput
+                style={styles.collabMessageInput}
+                value={collabMessage}
+                onChangeText={setCollabMessage}
+                placeholder="Optional message..."
+                placeholderTextColor="#9ca3af"
+                multiline
+              />
+
+              <View style={styles.collabFooterRow}>
+                <Text style={styles.collabSelectedText} numberOfLines={1}>
+                  Selected:{' '}
+                  {selectedInfluencer ? getInfluencerLabel(selectedInfluencer) : 'None'}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.collabSendButton, collabSending && styles.collabSendButtonDisabled]}
+                  onPress={handleSendCollabRequest}
+                  disabled={collabSending}
+                  activeOpacity={0.9}
+                >
+                  {collabSending ? (
+                    <ActivityIndicator size="small" color="#111827" />
+                  ) : (
+                    <Text style={styles.collabSendButtonText}>Send</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.collabDivider} />
+              <Text style={styles.collabSectionTitle}>Sent requests</Text>
+              {sentRequestsForPost.length === 0 ? (
+                <Text style={styles.collabEmptyText}>No requests sent for this product yet.</Text>
+              ) : (
+                (sentRequestsForPost || []).map((r) => {
+                  const status = r?.status ? String(r.status).toUpperCase() : '';
+                  const toName = r?.influencer?.name || r?.influencer_shop?.name || '';
+                  const rowLabel = toName ? `To ${toName}` : 'Request';
+                  return (
+                    <View key={String(r?.id)} style={styles.collabSentRow}>
+                      <Text style={styles.collabSentRowText} numberOfLines={1}>
+                        {rowLabel}
+                      </Text>
+                      <Text style={styles.collabSentStatus}>
+                        {status || '—'}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          ) : null}
+
           {
             isEditMode && 
             <PostMetricsCard 
@@ -1417,6 +1614,173 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#e5e7eb"
+  },
+
+  collabCard: {
+    backgroundColor: "#f4f4f4",
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+
+  collabEyebrow: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+
+  collabTitle: {
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "700",
+    marginTop: 8,
+  },
+
+  collabDescription: {
+    fontSize: 12,
+    color: "#4b5563",
+    marginTop: 10,
+    lineHeight: 20,
+  },
+
+  collabSearchInput: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    fontSize: 12,
+    marginTop: 16,
+  },
+
+  collabLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+
+  collabLoadingText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+
+  collabResultPill: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    marginTop: 12,
+  },
+
+  collabResultPillSelected: {
+    borderColor: '#fb923c',
+  },
+
+  collabResultText: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '600',
+  },
+
+  collabMessageInput: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: "#fbbf24",
+    fontSize: 12,
+    marginTop: 14,
+    minHeight: 110,
+    textAlignVertical: 'top',
+  },
+
+  collabFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 14,
+  },
+
+  collabSelectedText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+
+  collabSendButton: {
+    backgroundColor: '#fbbf24',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  collabSendButtonDisabled: {
+    opacity: 0.7,
+  },
+
+  collabSendButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
+
+  collabDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginTop: 18,
+  },
+
+  collabSectionTitle: {
+    marginTop: 16,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+  },
+
+  collabEmptyText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+
+  collabSentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginTop: 10,
+  },
+
+  collabSentRowText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+  },
+
+  collabSentStatus: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
   },
 
   rowBetween: {

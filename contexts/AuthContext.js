@@ -73,16 +73,24 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       return response;
     } catch (error) {
+      // Ensure we don't keep a stale/invalid session on failed login.
+      try {
+        await removeAuthToken();
+      } catch (e) {
+        // ignore
+      }
+      setUser(null);
+      setIsAuthenticated(false);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (email, password) => {
+  const register = async (email, password, accountType) => {
     try {
       setLoading(true);
-      const response = await businessAuth.register(email, password);
+      const response = await businessAuth.register(email, password, accountType);
       return response;
     } catch (error) {
       throw error;

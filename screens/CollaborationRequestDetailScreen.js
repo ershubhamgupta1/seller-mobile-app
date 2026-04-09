@@ -17,6 +17,7 @@ import Header from '../components/Header';
 import * as ImagePicker from 'expo-image-picker';
 import { API_BASE, collaboration, shop, uploads } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../contexts/AuthContext';
 
 const LAST_COLLAB_REQUEST_ID_STORAGE_KEY = 'last_collab_request_id';
 
@@ -76,18 +77,15 @@ const inferPlatformFromUrl = (value = '') => {
 
 const normalizeSocialHandleUrl = (platform, value = '') => {
   const normalizedValue = String(value || '').trim();
-  console.log('normalizedValue==========', normalizedValue, platform);
   if (!normalizedValue) {
     return '';
   }
 
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(normalizedValue)) {
-    console.log('ready to return')
     return normalizedValue;
   }
 
   const sanitizedHandle = normalizedValue.replace(/^@/, '').replace(/^\/+|\/+$/g, '');
-  console.log('sanitizedHandle==========', sanitizedHandle, platform);
 
   if (!sanitizedHandle) {
     return '';
@@ -148,6 +146,8 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
   const requestId = initialReq?.id ?? route?.params?.requestId;
   const prefillSocialUrl = route?.params?.prefillSocialUrl;
 
+  const { user } = useAuth();
+
   const prefillAppliedRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
@@ -157,11 +157,38 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
   });
   const [uploadingImages, setUploadingImages] = useState(false);
   const [savingCollabPost, setSavingCollabPost] = useState(false);
+  const [responding, setResponding] = useState(false);
   const [shopSocialHandles, setShopSocialHandles] = useState({
     instagram: '',
     facebook: '',
     pinterest: '',
   });
+
+  const resolveAccountType = (authUser) => {
+    const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+    const accountTypeRaw = u?.account_type;
+    if (typeof accountTypeRaw === 'string') {
+      const normalized = accountTypeRaw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+    if (typeof raw === 'string') {
+      const normalized = raw.toLowerCase();
+      if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+      if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+    }
+
+    if (u?.is_influencer === true) return 'influencer';
+    if (u?.is_business === true) return 'business';
+
+    return 'business';
+  };
+
+  const isInfluencer = resolveAccountType(user) === 'influencer';
+  const isPending = String(req?.status || '').toUpperCase() === 'PENDING';
 
   const statusPalette = useMemo(() => getStatusColor(req?.status), [req?.status]);
 
@@ -259,6 +286,29 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
     };
   }, [requestId]);
 
+  const fetchRequestDetails = async () => {
+    if (!requestId) return;
+    const res = await collaboration.getRequestDetail(requestId);
+    const freshReq = res?.request || res;
+    if (freshReq) setReq(freshReq);
+  };
+
+  const handleRespond = async (action) => {
+    if (!requestId) return;
+    const normalizedAction = String(action || '').toLowerCase();
+    if (normalizedAction !== 'accept' && normalizedAction !== 'reject') return;
+
+    try {
+      setResponding(true);
+      await collaboration.respondToRequest(requestId, normalizedAction);
+      await fetchRequestDetails();
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Failed to respond');
+    } finally {
+      setResponding(false);
+    }
+  };
+
   useEffect(() => {
     if (!requestId) return;
     AsyncStorage.setItem(LAST_COLLAB_REQUEST_ID_STORAGE_KEY, String(requestId)).catch(() => {});
@@ -304,6 +354,26 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
   const brandCity = brand?.city || '';
   const influencerName = req?.influencer?.name || '';
   const influencerCity = req?.influencer?.city || '';
+
+  const buildHandle = (entity) => {
+    const raw =
+      entity?.handle ||
+      entity?.username ||
+      entity?.slug ||
+      entity?.instagram_handle ||
+      entity?.instagram ||
+      entity?.ig_handle;
+
+    const value = String(raw || '').trim().replace(/^@/, '');
+    return value ? `@${value}` : '';
+  };
+
+  const buildMetaLine = (entity, city) => {
+    const handle = buildHandle(entity);
+    const cityValue = String(city || '').trim();
+    if (handle && cityValue) return `${handle} · ${cityValue}`;
+    return handle || cityValue || '';
+  };
 
   const handlePlatformPress = async (platform) => {
     setSelectedPlatform(platform.value);
@@ -755,24 +825,51 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Parties</Text>
 
-          <View style={styles.partyCard}>
+          <TouchableOpacity style={styles.partyCard} activeOpacity={0.9}>
             <View style={styles.partyTopRow}>
               <Text style={styles.partyLabel}>Brand</Text>
-              <Feather name="external-link" size={14} color="#6b7280" />
+              <Feather name="arrow-up-right" size={18} color="#6b7280" />
             </View>
             <Text style={styles.partyName}>{brandName || '—'}</Text>
-            <Text style={styles.partyMeta}>{brandCity ? `${brandCity}` : ''}</Text>
-          </View>
+            <Text style={styles.partyMeta}>{buildMetaLine(brand, brandCity)}</Text>
+          </TouchableOpacity>
 
-          <View style={styles.partyCard}>
+          <TouchableOpacity style={styles.partyCard} activeOpacity={0.9}>
             <View style={styles.partyTopRow}>
               <Text style={styles.partyLabel}>Influencer</Text>
-              <Feather name="external-link" size={14} color="#6b7280" />
+              <Feather name="arrow-up-right" size={18} color="#6b7280" />
             </View>
             <Text style={styles.partyName}>{influencerName || '—'}</Text>
-            <Text style={styles.partyMeta}>{influencerCity ? `${influencerCity}` : ''}</Text>
-          </View>
+            <Text style={styles.partyMeta}>{buildMetaLine(req?.influencer, influencerCity)}</Text>
+          </TouchableOpacity>
         </View>
+
+        {isInfluencer && isPending ? (
+          <View style={styles.actionCard}>
+            <Text style={styles.actionTitle}>Action</Text>
+            <View style={styles.actionPillRow}>
+              <TouchableOpacity
+                style={[styles.actionPill, styles.acceptPill, responding && styles.actionPillDisabled]}
+                disabled={responding}
+                onPress={() => handleRespond('accept')}
+              >
+                <Text style={[styles.actionPillText, styles.acceptPillText]}>
+                  {responding ? 'Please wait...' : 'Accept'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionPill, styles.rejectPill, responding && styles.actionPillDisabled]}
+                disabled={responding}
+                onPress={() => handleRespond('reject')}
+              >
+                <Text style={[styles.actionPillText, styles.rejectPillText]}>
+                  {responding ? 'Please wait...' : 'Reject'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.actionHint}>Accepting will add this product to your storefront.</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -951,21 +1048,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
-  imagesHeaderTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  imagesHeaderSubtitle: {
-    fontSize: 11,
-    color: '#6b7280',
-    marginTop: 4,
-  },
-  imagesHeaderActions: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
   smallButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1138,14 +1220,67 @@ const styles = StyleSheet.create({
   },
   partyName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#111827',
     marginTop: 10,
   },
   partyMeta: {
-    fontSize: 12,
+    fontSize: 16,
+    fontWeight: '600',
     color: '#6b7280',
     marginTop: 6,
+  },
+  actionCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 18,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  actionPillRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 16,
+  },
+  actionPill: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  actionPillDisabled: {
+    opacity: 0.6,
+  },
+  actionPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  acceptPill: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#bbf7d0',
+  },
+  acceptPillText: {
+    color: '#065f46',
+  },
+  rejectPill: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecdd3',
+  },
+  rejectPillText: {
+    color: '#9f1239',
+  },
+  actionHint: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#6b7280',
+    marginTop: 16,
   },
 });
 

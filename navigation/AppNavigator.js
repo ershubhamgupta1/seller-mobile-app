@@ -26,6 +26,7 @@ import FeedScreen from '../screens/FeedScreen';
 import IncomingShareScreen from '../screens/IncomingShareScreen';
 import CollaborationRequestDetailScreen from '../screens/CollaborationRequestDetailScreen';
 import CollabSearchScreen from '../screens/CollabSearchScreen';
+import CollaborationRequestsScreen2 from '../screens/CollaborationRequestsScreen2';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -65,7 +66,7 @@ const MainTabs = ({ accountType }) => {
   const inventoryOrClosetRouteName = isInfluencer ? 'Closet' : 'Inventory';
   const inventoryOrClosetComponent = isInfluencer ? ClosetScreen : InventoryScreen;
   const inventoryOrClosetLabel = isInfluencer ? 'Closet' : 'Inventory';
-  const shopIdentityLabel = isInfluencer ? 'Influencer Profile' : 'Shop Profile';
+  const shopIdentityLabel = isInfluencer ? 'Influ. Profile' : 'Shop Profile';
 
   return (
     <Tab.Navigator
@@ -178,6 +179,7 @@ const AppNavigator = () => {
       <Stack.Screen name="addPost" component={AddProductScreen} />
       <Stack.Screen name="feedScreen" component={FeedScreen} />
       <Stack.Screen name="collaborationRequestDetail" component={CollaborationRequestDetailScreen} />
+      <Stack.Screen name="collaborationRequests" component={CollaborationRequestsScreen2} />
       <Stack.Screen name="collab-search" component={CollabSearchScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
     </Stack.Navigator>

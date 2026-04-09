@@ -19,6 +19,7 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [accountType, setAccountType] = useState('business');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
 
@@ -33,7 +34,7 @@ const LoginScreen = ({ navigation }) => {
       if (isLogin) {
         await login(email, password);
       } else {
-        await register(email, password);
+        await register(email, password, accountType);
         Alert.alert('Success', 'Registration successful! Please login.');
         setIsLogin(true);
       }
@@ -42,6 +43,23 @@ const LoginScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectAccountType = () => {
+    Alert.alert('Account type', 'Choose the workspace you want to create', [
+      {
+        text: 'Business',
+        onPress: () => setAccountType('business'),
+      },
+      {
+        text: 'Influencer',
+        onPress: () => setAccountType('influencer'),
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
   };
 
   return (
@@ -65,6 +83,77 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           <View style={[styles.form, isTablet && styles.formTablet]}>
+          {!isLogin && (
+            <View style={styles.accountTypeCard}>
+              <Text style={styles.accountTypeLabel}>Account type</Text>
+
+              <View style={styles.accountTypeRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.accountTypeOption,
+                    accountType === 'business' && styles.accountTypeOptionSelected,
+                  ]}
+                  onPress={() => setAccountType('business')}
+                  activeOpacity={0.9}
+                >
+                  <Text
+                    style={[
+                      styles.accountTypeTitle,
+                      accountType === 'business' && styles.accountTypeTitleSelected,
+                    ]}
+                  >
+                    Business
+                  </Text>
+                  <Text
+                    style={[
+                      styles.accountTypeSubtitle,
+                      accountType === 'business' && styles.accountTypeSubtitleSelected,
+                    ]}
+                  >
+                    Seller workspace
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.accountTypeOption,
+                    accountType === 'influencer' && styles.accountTypeOptionSelected,
+                  ]}
+                  onPress={() => setAccountType('influencer')}
+                  activeOpacity={0.9}
+                >
+                  <Text
+                    style={[
+                      styles.accountTypeTitle,
+                      accountType === 'influencer' && styles.accountTypeTitleSelected,
+                    ]}
+                  >
+                    Influencer
+                  </Text>
+                  <Text
+                    style={[
+                      styles.accountTypeSubtitle,
+                      accountType === 'influencer' && styles.accountTypeSubtitleSelected,
+                    ]}
+                  >
+                    Creator workspace
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.accountTypeDropdown}
+                onPress={handleSelectAccountType}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.accountTypeDropdownText}>
+                  {accountType === 'influencer' ? 'Influencer account' : 'Business account'}
+                </Text>
+                <Text style={styles.accountTypeDropdownChevron}>▼</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -222,6 +311,69 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 420,
     justifyContent: 'center',
+  },
+  accountTypeCard: {
+    marginBottom: 18,
+  },
+  accountTypeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 10,
+  },
+  accountTypeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  accountTypeOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  accountTypeOptionSelected: {
+    borderColor: '#111827',
+  },
+  accountTypeTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  accountTypeTitleSelected: {
+    color: '#111827',
+  },
+  accountTypeSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  accountTypeSubtitleSelected: {
+    color: '#6b7280',
+  },
+  accountTypeDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  accountTypeDropdownText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  accountTypeDropdownChevron: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginLeft: 12,
   },
   inputContainer: {
     marginBottom: 20,
