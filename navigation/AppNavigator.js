@@ -19,6 +19,7 @@ import PayoutHistoryScreen from '../screens/PayoutHistoryScreen';
 
 import AddProductScreen from '../screens/AddProductScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import InvoiceScreen from '../screens/InvoiceScreen';
 import LoginScreen from '../screens/LoginScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import TrustMeterScreen from '../screens/TrustMeterScreen';
@@ -84,9 +85,8 @@ const MainTabs = ({ accountType }) => {
             return <FontAwesome5 name={iconName} size={20} color={color} />;
           } else if (route.name === 'Add') {
             iconName = 'plus';
-          } else if (route.name === 'Analytics') {
-            iconName = 'graph';
-            return <Octicons name={iconName} size={20} color={color} />;
+          } else if (route.name === 'Feed') {
+            iconName = 'rss';
           } else if (route.name === 'Settings') {
             iconName = 'cog';
           }
@@ -127,11 +127,11 @@ const MainTabs = ({ accountType }) => {
         }}
       />
       <Tab.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
+        name="Feed"
+        component={FeedScreen}
         options={{
           headerShown: false,
-          tabBarLabel: 'Analytics',
+          tabBarLabel: 'Feed',
         }}
       />
       <Tab.Screen
@@ -178,10 +178,13 @@ const AppNavigator = () => {
       <Stack.Screen name="handleShare" component={IncomingShareScreen} />
       <Stack.Screen name="addPost" component={AddProductScreen} />
       <Stack.Screen name="feedScreen" component={FeedScreen} />
+      <Stack.Screen name="analytics" component={AnalyticsScreen} />
+      <Stack.Screen name="invoice" component={InvoiceScreen} />
       <Stack.Screen name="collaborationRequestDetail" component={CollaborationRequestDetailScreen} />
       <Stack.Screen name="collaborationRequests" component={CollaborationRequestsScreen2} />
       <Stack.Screen name="collab-search" component={CollabSearchScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+
     </Stack.Navigator>
   );
 };

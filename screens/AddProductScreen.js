@@ -762,13 +762,14 @@ export default function AddPostScreen({ route }) {
         postData.attributes.international_delivery_fee_amount = internationalDelivery ? parseFloat(internationalDelivery) : 0;
       }
 
+      // Include social fields for both create and edit
+      postData.social_platform = selectedPlatform;
+      postData.social_url = url;
+
       let response;
       if (isEditMode) {
         response = await inventory.updatePost(post.id, postData);
       } else {
-        postData.social_platform = selectedPlatform;
-        postData.social_url = url;
-
         response = await inventory.createPost(postData);
       }
       
@@ -1084,9 +1085,8 @@ export default function AddPostScreen({ route }) {
 
   const platforms = [
     { value: "instagram", label: "Instagram", icon: "instagram", color: "#e1306c" },
-    { value: "facebook", label: "Facebook", icon: "facebook-official", color: "#1877f2" },
-    { value: "pinterest", label: "Pinterest", icon: "pinterest-p", color: "#e60023" },
-
+    { value: "facebook", label: "Facebook", icon: "facebook", color: "#1877f2" },
+    { value: "pinterest", label: "Pinterest", icon: "pinterest", color: "#e60023" },
   ];
 
   const templates = [
@@ -1291,51 +1291,40 @@ export default function AddPostScreen({ route }) {
                 </View>
               </>  
             }
-            {
-              !isEditMode &&
-              <>  
-                <Text style={styles.label}>Social post / reel URL</Text>
+            <>
+              <Text style={styles.label}>Social post / reel URL</Text>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="https://www.instagram.com/reel/..."
-                  value={url}
-                  onChangeText={setUrl}
-                />
+              <TextInput
+                style={styles.input}
+                placeholder="https://www.instagram.com/reel/..."
+                value={url}
+                onChangeText={setUrl}
+              />
 
-                <View style={styles.platformGrid}>
-                  {platforms.map((platform) => {
-                    const isSelected = selectedPlatform === platform.value;
+              <View style={styles.platformGrid}>
+                {platforms.map((platform) => {
+                  const isSelected = selectedPlatform === platform.value;
 
-                    return (
-                      <TouchableOpacity
-                        key={platform.value}
-                        style={[
-                          styles.platformCard,
-                          isSelected && styles.platformCardSelected,
-                        ]}
-                        onPress={() => handlePlatformPress(platform)}
-                        activeOpacity={0.9}
-                      >
-                        <FontAwesome
-                          name={platform.icon}
-                          size={22}
-                          color={platform.color}
-                        />
-                        <Text
-                          style={[
-                            styles.platformCardText,
-                            isSelected && styles.platformCardTextSelected,
-                          ]}
-                        >
-                          {platform.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </>
-            }
+                  return (
+                    <TouchableOpacity
+                      key={platform.value}
+                      style={[
+                        styles.platformCard,
+                        isSelected && styles.platformCardSelected,
+                      ]}
+                      onPress={() => handlePlatformPress(platform)}
+                      activeOpacity={0.9}
+                    >
+                      <FontAwesome
+                        name={platform.icon}
+                        size={16}
+                        color={platform.color}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
 
 
             <Text style={styles.helperText}>

@@ -9,6 +9,7 @@ import * as Clipboard from "expo-clipboard";
 import { SvgXml } from "react-native-svg";
 import Header from '../components/Header';
 import { shop } from '../services/api';
+import AnalyticsScreen from './AnalyticsScreen';
 
 const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -110,12 +111,12 @@ const HomeScreen = ({ navigation }) => {
       }
     >
       <Header 
-        title={shopData?.name || 'E-KOM'}
+        title={shopData?.name || 'Folinko'}
         onNotificationPress={() => console.log('Notification pressed')}
         onProfilePress={() => navigation.navigate('userProfile')}
       />
-      <TouchableOpacity style={styles.qrButton} onPress={() => navigation.navigate('dashboard')}>
-      <Text style={styles.sectionTitle}>Dashboard</Text>
+      <TouchableOpacity style={styles.qrButton} onPress={() => navigation.navigate('analytics')}>
+      <Text style={styles.sectionTitle}>Analytics</Text>
 
       </TouchableOpacity>
 

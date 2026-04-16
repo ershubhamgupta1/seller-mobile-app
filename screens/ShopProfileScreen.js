@@ -962,6 +962,31 @@ const ShopProfileScreen = ({ navigation }) => {
                   )}
                 </View>
               </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIcon}>
+                  <FontAwesome5 name="youtube" size={16} color="#666" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>YouTube</Text>
+                  {isEditingProfile ? (
+                    <TextInput
+                      style={isInfluencer ? styles.influencerInput : styles.input}
+                      value={formData.youtube_handle}
+                      onChangeText={(text) => setFormData({ ...formData, youtube_handle: text })}
+                      placeholder={isInfluencer ? 'https://www.youtube.com/channel/...' : 'https://youtube.com'}
+                      keyboardType="url"
+                    />
+                  ) : (
+                    isInfluencer ? (
+                      <View style={styles.influencerValueBox}>
+                        <Text style={styles.influencerValueText}>{formData.youtube_handle || 'Not specified'}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>{formData.youtube_handle || 'Not specified'}</Text>
+                    )
+                  )}
+                </View>
+              </View>
               {/* <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
                   <FontAwesome5 name="envelope" size={16} color="#666" />
@@ -1656,7 +1681,7 @@ const ShopProfileScreen = ({ navigation }) => {
                 <ViewShot ref={viewShotRef} options={{ format: "png", quality: 1 }}>
                   <SvgXml
                     xml={qrImageUrl}
-                    width={150}
+                    width={130}
                     height={150}
                     style={styles.qrCodeImage}
                   />

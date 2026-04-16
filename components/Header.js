@@ -66,7 +66,7 @@ const Header = ({
       default:
         return (
           <View style={styles.defaultHeaderContent}>
-            <Text style={styles.logo}>{title || 'E-KOM'}</Text>
+            <Text style={styles.logo}>{title || 'Folinko'}</Text>
             {showIcons && (
               <View style={styles.headerIcons}>
                 <TouchableOpacity style={styles.iconButton} onPress={onNotificationPress}>

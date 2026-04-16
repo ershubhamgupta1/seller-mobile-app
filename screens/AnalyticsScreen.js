@@ -5,7 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  useWindowDimensions
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +20,8 @@ export default function AnalyticsScreen() {
 
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -123,7 +126,7 @@ export default function AnalyticsScreen() {
   };
 
   const Metric = ({ title, value, desc }) => (
-    <View style={styles.metric}>
+    <View style={[styles.metric, isTablet && styles.metricHalf]}>
       <Text style={styles.metricTitle}>{title}</Text>
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricDesc}>{desc}</Text>
@@ -131,7 +134,7 @@ export default function AnalyticsScreen() {
   )
 
   const InfluencerMetric = ({ title, value, desc }) => (
-    <View style={styles.metric}>
+    <View style={[styles.metric, isTablet && styles.metricHalf]}>
       <Text style={styles.metricTitle}>{title}</Text>
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricDesc}>{desc}</Text>
@@ -169,6 +172,9 @@ export default function AnalyticsScreen() {
       >
         <Header
           title="Analytics"
+          headerType="page"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
           onNotificationPress={() => console.log("Notification pressed")}
           onProfilePress={() => navigation.navigate("userProfile")}
         />
@@ -182,46 +188,48 @@ export default function AnalyticsScreen() {
                 Collaboration orders, your earnings cut, and growth signals from partnered products.
               </Text>
 
-              <InfluencerMetric
-                title="Collab GMV"
-                value={`${getOverviewMetric('gross_sales')}`}
-                desc="Customer-paid total on attributed collaboration orders"
-              />
-              <InfluencerMetric
-                title="Collaborated items subtotal"
-                value={`${getOverviewMetric('item_sales')}`}
-                desc="Subtotal of items tied to accepted collaborations"
-              />
-              <InfluencerMetric
-                title="Your Cut"
-                value={`${getOverviewMetric('influencer_cut')}`}
-                desc="Your earnings from collaborated orders"
-              />
-              <InfluencerMetric
-                title="Orders"
-                value={`${getOverviewMetric('orders')}`}
-                desc="Attributed collab orders"
-              />
-              <InfluencerMetric
-                title="Customers Reached"
-                value={`${getOverviewMetric('customers')}`}
-                desc="Unique buyers from your collab orders"
-              />
-              <InfluencerMetric
-                title="Accepted collaborations"
-                value={`${getOverviewMetric('accepted_collabs')}`}
-                desc="Active accepted collaboration requests"
-              />
-              <InfluencerMetric
-                title="Converted collaborations"
-                value={`${getOverviewMetric('converted_collabs')}`}
-                desc="Accepted collaborations with at least one order"
-              />
-              <InfluencerMetric
-                title="Average collab order value"
-                value={`${getOverviewMetric('avg_order_value')}`}
-                desc="Collab GMV divided by attributed collab orders"
-              />
+              <View style={[isTablet && styles.metricsGrid]}>
+                <InfluencerMetric
+                  title="Collab GMV"
+                  value={`${getOverviewMetric('gross_sales')}`}
+                  desc="Customer-paid total on attributed collaboration orders"
+                />
+                <InfluencerMetric
+                  title="Collaborated items subtotal"
+                  value={`${getOverviewMetric('item_sales')}`}
+                  desc="Subtotal of items tied to accepted collaborations"
+                />
+                <InfluencerMetric
+                  title="Your Cut"
+                  value={`${getOverviewMetric('influencer_cut')}`}
+                  desc="Your earnings from collaborated orders"
+                />
+                <InfluencerMetric
+                  title="Orders"
+                  value={`${getOverviewMetric('orders')}`}
+                  desc="Attributed collab orders"
+                />
+                <InfluencerMetric
+                  title="Customers Reached"
+                  value={`${getOverviewMetric('customers')}`}
+                  desc="Unique buyers from your collab orders"
+                />
+                <InfluencerMetric
+                  title="Accepted collaborations"
+                  value={`${getOverviewMetric('accepted_collabs')}`}
+                  desc="Active accepted collaboration requests"
+                />
+                <InfluencerMetric
+                  title="Converted collaborations"
+                  value={`${getOverviewMetric('converted_collabs')}`}
+                  desc="Accepted collaborations with at least one order"
+                />
+                <InfluencerMetric
+                  title="Average collab order value"
+                  value={`${getOverviewMetric('avg_order_value')}`}
+                  desc="Collab GMV divided by attributed collab orders"
+                />
+              </View>
             </View>
           ) : (
             <>
@@ -235,11 +243,13 @@ export default function AnalyticsScreen() {
                   Sales, customers, payouts, and growth signals — shop-scoped and built for decision-making.
                 </Text>
 
-                <Metric title="Gross Sales" value={`₹${kpis.gross_sales ?? 0}`} desc="GMV (before platform fee)" />
-                <Metric title="Platform Fee" value={`₹${kpis.platform_fee ?? 0}`} desc="10% marketplace fee" />
-                <Metric title="Net Sales" value={`₹${kpis.net_sales ?? 0}`} desc="GMV after fee" />
-                <Metric title="Orders" value={`${kpis.orders ?? 0}`} desc="Track conversion and AOV" />
-                <Metric title="Payouts Pending" value={`₹${kpis.payouts_pending ?? 0}`} desc="Settlement pipeline" />
+                <View style={[isTablet && styles.metricsGrid]}>
+                  <Metric title="Gross Sales" value={`₹${kpis.gross_sales ?? 0}`} desc="GMV (before platform fee)" />
+                  <Metric title="Platform Fee" value={`₹${kpis.platform_fee ?? 0}`} desc="10% marketplace fee" />
+                  <Metric title="Net Sales" value={`₹${kpis.net_sales ?? 0}`} desc="GMV after fee" />
+                  <Metric title="Orders" value={`${kpis.orders ?? 0}`} desc="Track conversion and AOV" />
+                  <Metric title="Payouts Pending" value={`₹${kpis.payouts_pending ?? 0}`} desc="Settlement pipeline" />
+                </View>
 
               </View>
             </>
@@ -369,13 +379,15 @@ export default function AnalyticsScreen() {
 
                 <Text style={styles.titleSmall}>Catalog snapshot</Text>
 
-                <Metric title="Total Posts" value={`${inventory.total_posts ?? 0}`} desc="" />
-                <Metric
-                  title="Priced Posts"
-                  value={`${inventory.priced_posts ?? 0}`}
-                  desc={`${inventory.min_price ?? 0} min · ${inventory.max_price ?? 0} max`}
-                />
-                <Metric title="Catalog Value" value={`${inventory.catalog_value ?? 0}`} desc="Sum of all priced posts" />
+                <View style={[isTablet && styles.metricsGrid]}>
+                  <Metric title="Total Posts" value={`${inventory.total_posts ?? 0}`} desc="" />
+                  <Metric
+                    title="Priced Posts"
+                    value={`${inventory.priced_posts ?? 0}`}
+                    desc={`${inventory.min_price ?? 0} min · ${inventory.max_price ?? 0} max`}
+                  />
+                  <Metric title="Catalog Value" value={`${inventory.catalog_value ?? 0}`} desc="Sum of all priced posts" />
+                </View>
 
               </View>
               {/* Social Signal */}
@@ -543,6 +555,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb"
   },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metricHalf: {
+    width: '48%',
+  },
 
   metricTitle: {
     fontSize: 14,
@@ -550,8 +570,9 @@ const styles = StyleSheet.create({
   },
 
   metricValue: {
-    fontSize: 22,
-    fontWeight: "700"
+    fontSize: 14,
+    fontWeight: "700",
+    paddingVertical: 6
   },
 
   metricDesc: {

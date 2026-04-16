@@ -13,7 +13,7 @@ import {
 import { inventory } from "../services/api";
 import Header from "../components/Header";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 const getInventoryColumnCount = (width) => {
@@ -86,6 +86,16 @@ const InventoryScreen = ({ navigation }) => {
             </View>
         );
     }
+  const platforms = [
+    { value: "instagram", label: "Instagram", icon: "instagram", color: "#e1306c" },
+    { value: "facebook", label: "Facebook", icon: "facebook", color: "#1877f2" },
+    { value: "twitter", label: "Twitter", icon: "twitter", color: "#1da1f2" },
+    { value: "youtube", label: "YouTube", icon: "youtube", color: "#ff0000" },
+    { value: "tiktok", label: "TikTok", icon: "music", color: "#000000" },
+    { value: "other", label: "Other", icon: "globe", color: "#6b7280" },
+  ];
+
+    console.log('posts----------', posts);
     return (
 
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -153,7 +163,9 @@ const InventoryScreen = ({ navigation }) => {
                         </View>
                     ) : (
                         <View style={styles.postsGrid}>
-                            {posts.map((item) => (
+                            {posts.map((item) => {
+                                const platform =  platforms.find(platform=> platform.value === item.social_platform);
+                                return (
                                 <TouchableOpacity 
                                     key={item.id} 
                                     style={[styles.postCard, { width: cardWidth }]}
@@ -165,7 +177,8 @@ const InventoryScreen = ({ navigation }) => {
                                             style={[styles.postImage, { height: imageHeight }]}
                                         />
                                         <View style={styles.instagramBadge}>
-                                            <Text style={styles.instagramText}>{item.social_platform}</Text>
+                                            {['instagram', 'facebook', 'twitter', 'youtube', 'tiktok'].includes(item.social_platform) && <FontAwesome name={platform.icon} size={16} color={platform.color}/>}
+                                            {!['instagram', 'facebook', 'twitter', 'youtube', 'tiktok'].includes(item.social_platform) && <Feather name="globe" size={12} color="#fff" />}
                                         </View>
                                         <View style={styles.priceBadge}>
                                             <Text style={styles.priceBadgeText}>₹ {item.price}</Text>
@@ -189,7 +202,8 @@ const InventoryScreen = ({ navigation }) => {
                                         </View>
                                     </View>
                                 </TouchableOpacity>
-                            ))}
+                                )
+                            })}
                         </View>
                     )}
 

@@ -18,7 +18,17 @@ const OrdersScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [ordersData, setOrdersData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const { user } = useAuth();
+
+  const statusOptions = [
+    { key: 'all', label: 'All Orders' },
+    { key: 'created', label: 'Created' },
+    { key: 'processing', label: 'Processing' },
+    { key: 'shipped', label: 'Shipped' },
+    { key: 'delivered', label: 'Delivered' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
 
   const resolveAccountType = (authUser) => {
     const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
@@ -57,7 +67,7 @@ const OrdersScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [selectedStatus]);
 
   const fetchOrders = async () => {
     try {
@@ -65,6 +75,15 @@ const OrdersScreen = ({ navigation }) => {
 
       const response = await orders?.getOrders();
       let ordersDataRes = response?.orders || [];
+
+      // Filter orders by selected status
+      if (selectedStatus !== 'all') {
+        ordersDataRes = ordersDataRes.filter(order => {
+          const status = order.fulfillment?.status || order.order_status || 'CREATED';
+          const normalizedStatus = status.toLowerCase();
+          return normalizedStatus === selectedStatus;
+        });
+      }
 
       // fallback mock
       // if (ordersDataRes.length === 0) {
@@ -135,6 +154,36 @@ const OrdersScreen = ({ navigation }) => {
             <Text style={styles.description}>
               {headerCopy.description}
             </Text>
+
+            {/* STATUS FILTERS */}
+            <View style={styles.filterContainer}>
+              <Text style={styles.filterTitle}>Filter by Status</Text>
+              <View style={styles.radioGroup}>
+                {statusOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.radioButton,
+                      selectedStatus === option.key && styles.radioButtonSelected
+                    ]}
+                    onPress={() => setSelectedStatus(option.key)}
+                  >
+                    <View style={styles.radioInner}>
+                      <View style={[
+                        styles.radioDot,
+                        selectedStatus === option.key && styles.radioDotSelected
+                      ]} />
+                      <Text style={[
+                        styles.radioLabel,
+                        selectedStatus === option.key && styles.radioLabelSelected
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
             {/* INNER BOX */}
             <View style={styles.innerBox}>
@@ -444,5 +493,63 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 20,
     alignItems: "center",
+  },
+
+  /* Radio Button Styles */
+  filterContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  radioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minWidth: 90,
+  },
+  radioButtonSelected: {
+    backgroundColor: '#f59e0b',
+    borderColor: '#f59e0b',
+  },
+  radioInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    marginRight: 8,
+  },
+  radioDotSelected: {
+    backgroundColor: '#fff',
+  },
+  radioLabel: {
+    fontSize: 10,
+    color: '#64748b',
+  },
+  radioLabelSelected: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });

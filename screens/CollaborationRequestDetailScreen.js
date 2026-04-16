@@ -678,8 +678,11 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
           <View style={styles.platformGrid}>
             {[
               { value: 'instagram', label: 'Instagram', icon: 'instagram', color: '#e1306c' },
-              { value: 'facebook', label: 'Facebook', icon: 'facebook-official', color: '#1877f2' },
-              { value: 'pinterest', label: 'Pinterest', icon: 'pinterest-p', color: '#e60023' },
+              { value: 'facebook', label: 'Facebook', icon: 'facebook', color: '#1877f2' },
+              { value: 'twitter', label: 'Twitter', icon: 'twitter', color: '#1da1f2' },
+              { value: 'youtube', label: 'YouTube', icon: 'youtube', color: '#ff0000' },
+              { value: 'tiktok', label: 'TikTok', icon: 'music', color: '#000000' },
+              { value: 'other', label: 'Other', icon: 'globe', color: '#6b7280' },
             ].map((platform) => {
               const isSelected = String(selectedPlatform || '').toLowerCase() === platform.value;
 

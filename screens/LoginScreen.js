@@ -73,7 +73,7 @@ const LoginScreen = ({ navigation }) => {
       >
         <View style={[styles.authLayout, isTablet && styles.authLayoutTablet]}>
           <View style={[styles.header, isTablet && styles.headerTablet]}>
-            <Text style={[styles.logo, isTablet && styles.logoTablet]}>E-KOM</Text>
+            <Text style={[styles.logo, isTablet && styles.logoTablet]}>Folinko</Text>
             <Text style={[styles.subtitle, isTablet && styles.subtitleTablet]}>
               {isLogin ? 'Welcome back!' : 'Create your account'}
             </Text>

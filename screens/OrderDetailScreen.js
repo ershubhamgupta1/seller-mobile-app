@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { orders } from "../services/api";
+import { orders, shop } from "../services/api";
 import { useAuth } from '../contexts/AuthContext';
 
 /* ===================== DESIGN TOKENS ===================== */
@@ -81,6 +81,7 @@ export default function OrderDetailScreen() {
   
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [shopData, setShopData] = useState(null);
 
   const resolveAccountType = (authUser) => {
     const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
@@ -109,7 +110,17 @@ export default function OrderDetailScreen() {
 
   useEffect(() => {
     fetchOrderDetails();
+    fetchShopData();
   }, [orderId]);
+
+  const fetchShopData = async () => {
+    try {
+      const response = await shop.getMyShop();
+      setShopData(response?.shop || {});
+    } catch (error) {
+      console.error('Error fetching shop data:', error);
+    }
+  };
 
   const fetchOrderDetails = async () => {
     try {
@@ -137,7 +148,7 @@ export default function OrderDetailScreen() {
         <View style={styles.actions}>
           {!isInfluencer && (
             <View>
-              <TouchableOpacity style={styles.pill}>
+              <TouchableOpacity style={styles.pill} onPress={() => navigation.navigate('invoice', { orderId: orderData?.id })}>
                 <Ionicons name="document-text-outline" size={18} />
                 <Text style={styles.pillText}>Bill</Text>
               </TouchableOpacity>
@@ -148,6 +159,33 @@ export default function OrderDetailScreen() {
               <Ionicons name="arrow-back" size={18} />
               <Text style={styles.pillText}>Back</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      
+      <View style={styles.invoiceHeader}>
+        <View style={styles.invoiceDetailsRow}>
+          <View style={styles.leftColumn}>
+            <Text style={base.label}>Seller:</Text>
+            <Text style={{...base.value, fontWeight: 700, fontSize: 16, marginBottom: 2}}>{shopData?.name || 'N/A'}</Text>
+            <Text style={base.value}>{shopData?.bio_link || 'N/A'}</Text>
+            <Text style={base.label}>Address:</Text>
+            <Text style={base.value}>
+              {shopData?.address && shopData?.city 
+                ? `${shopData.address}, ${shopData.city}` 
+                : shopData?.address || shopData?.city || 'N/A'
+              }
+            </Text>
+            <Text style={base.label}>Phone:</Text>
+            <Text style={base.value}>{shopData?.phone || 'N/A'}</Text>
+            <Text style={base.label}>WhatsApp:</Text>
+            <Text style={base.value}>{shopData?.whatsapp || shopData?.phone || 'N/A'}</Text>
+          </View>
+          <View style={styles.rightColumn}>
+            <Text style={base.label}>Order Date:</Text>
+            <Text style={base.value}>{new Date(orderData?.created_at).toLocaleDateString()}</Text>
+            <Text style={base.label}>Status:</Text>
+            <Text style={base.value}>{orderData?.order_status || 'Pending'}</Text>
           </View>
         </View>
       </View>
@@ -464,6 +502,45 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#aaa",
     marginVertical: 20,
+  },
+
+  /* Invoice Header Styles */
+  invoiceHeader: {
+    // backgroundColor: '#f8fafc',
+    // padding: 16,
+    // borderRadius: 12,
+    marginBottom: 16,
+    // borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  invoiceTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  invoiceTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  invoiceNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  invoiceDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  leftColumn: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  rightColumn: {
+    flex: 1,
+    paddingLeft: 16,
+    alignItems: 'flex-end',
   },
 
   /* HEADER */

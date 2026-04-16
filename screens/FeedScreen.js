@@ -236,7 +236,7 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.customHeader}>
+      {/* <View style={styles.customHeader}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
@@ -248,7 +248,7 @@ export default function FeedScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Feed</Text>
         <View style={styles.headerRightSpacer} />
-      </View>
+      </View> */}
 
       <ScrollView 
         style={styles.container}

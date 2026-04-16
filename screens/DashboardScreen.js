@@ -474,9 +474,9 @@ const DashboardScreen = ({ navigation }) => {
               {/* NAV */}
               <TouchableOpacity
                 style={styles.secondaryButton}
-                onPress={() => navigation.navigate("feedScreen")}
+                onPress={() => navigation.navigate("analytics")}
               >
-                <Text style={styles.secondaryButtonText}>Open Feed</Text>
+                <Text style={styles.secondaryButtonText}>Open Analytics</Text>
                 <Feather name="arrow-right" size={16} />
               </TouchableOpacity>
 
