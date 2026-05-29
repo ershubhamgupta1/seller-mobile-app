@@ -12,8 +12,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow app to save QR codes to your gallery",
-          "savePhotosPermission": "Allow app to save QR codes",
+          "photosPermission": "Allow app to access your photos",
+          "savePhotosPermission": "Allow app to save QR codes to your gallery",
           "isAccessMediaLocationEnabled": false,
           "android": {
             "permissions": [
@@ -26,7 +26,7 @@
       [
         "expo-share-intent",
         {
-          "disableIOS": true,
+          "disableIOS": false,
           "androidIntentFilters": [
             "text/*",
             "image/*"
@@ -44,7 +44,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ershubhamgupta1.mobilesellerapp"
+      "bundleIdentifier": "com.ershubhamgupta1.mobilesellerapp",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow app to access your photos and media",
+        "NSPhotoLibraryAddUsageDescription": "Allow app to save QR codes and media to your gallery",
+        "NSUserActivityTypes": [
+          "INSendMessageIntent"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

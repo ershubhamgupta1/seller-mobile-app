@@ -19,6 +19,7 @@ const OrdersScreen = ({ navigation }) => {
   const [ordersData, setOrdersData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [shopExists, setShopExists] = useState(true);
   const { user } = useAuth();
 
   const statusOptions = [
@@ -104,8 +105,15 @@ const OrdersScreen = ({ navigation }) => {
       // }
 
       setOrdersData(ordersDataRes);
+      setShopExists(true);
     } catch (e) {
-      console.error(e);
+      const msg = String(e?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
+        setOrdersData([]);
+      } else {
+        console.error(e);
+      }
     } finally {
       setLoading(false);
     }
@@ -140,6 +148,12 @@ const OrdersScreen = ({ navigation }) => {
           onNotificationPress={() => {}}
           onProfilePress={() => navigation.navigate("userProfile")}
         />
+
+        {!shopExists && (
+          <View style={styles.notificationBanner}>
+            <Text style={styles.notificationText}>Create your shop first</Text>
+          </View>
+        )}
 
         <View style={styles.content}>
 
@@ -349,6 +363,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#4b5563",
     marginVertical: 10,
+  },
+
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 
   innerBox: {

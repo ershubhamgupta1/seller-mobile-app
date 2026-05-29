@@ -14,21 +14,27 @@ const InvoiceScreen = () => {
   const [orderData, setOrderData] = useState(null);
   const [shopData, setShopData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [shopExists, setShopExists] = useState(true);
 
   useEffect(() => {
     const fetchOrderAndShop = async () => {
       try {
         const data = await orders.getOrder(orderId);
-        console.log("order detail=========", JSON.stringify(data));
         setOrderData(data);
         
         // Fetch current user's shop data
         try {
           const shopInfo = await shop.getMyShop();
-          console.log('shopInfo=======', JSON.stringify(shopInfo))
           setShopData(shopInfo?.shop);
+          setShopExists(true);
         } catch (shopError) {
-          console.error('Error fetching shop data:', shopError);
+          // Check if error is due to shop not existing
+          const msg = String(shopError?.message || '').toLowerCase();
+          if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+            setShopExists(false);
+          } else {
+            console.error('Error fetching shop data:', shopError);
+          }
         }
       } catch (error) {
         console.error('Error fetching order:', error);
@@ -130,7 +136,6 @@ Generated on ${new Date().toLocaleDateString()}
       </SafeAreaView>
     );
   }
-  console.log("shopData========", shopData)
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -145,6 +150,11 @@ Generated on ${new Date().toLocaleDateString()}
           </TouchableOpacity>
         }
       />
+      {!shopExists && (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>Create your shop first</Text>
+        </View>
+      )}
       <ScrollView style={styles.container}>
         {/* Invoice Header */}
         <View style={styles.invoiceHeader}>
@@ -537,6 +547,20 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: "#f5f5f5",
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 });
 

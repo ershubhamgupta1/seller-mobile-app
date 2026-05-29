@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -32,6 +33,16 @@ const formatCurrency = (currency, amount) => {
   return `${normalized} ${value}`;
 };
 
+const normalizeLinkRoutes = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.link_routes)) return response.link_routes;
+  if (Array.isArray(response?.routes)) return response.routes;
+  if (Array.isArray(response?.data)) return response.data;
+  if (response?.link_route) return [response.link_route];
+  if (response?.route) return [response.route];
+  return [];
+};
+
 const ClosetScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
@@ -40,28 +51,25 @@ const ClosetScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [outgoingRequests, setOutgoingRequests] = useState([]);
-
-  const spotlightLinks = useMemo(
-    () => [
-      'https://ekom.in/closet/invite/collections',
-      'https://ekom.in/closet/invite/favorites',
-      'https://ekom.in/closet/invite/brand-edit',
-    ],
-    []
-  );
+  const [linkRoutes, setLinkRoutes] = useState([]);
+  const [linkInput, setLinkInput] = useState('');
+  const [linkRouteSubmitting, setLinkRouteSubmitting] = useState(false);
+  const [removingLinkRouteId, setRemovingLinkRouteId] = useState(null);
 
   const fetchRequests = useCallback(async (opts = {}) => {
     const isRefresh = opts.refresh === true;
     try {
       if (!isRefresh) setLoading(true);
 
-      const [incomingRes, outgoingRes] = await Promise.all([
+      const [incomingRes, outgoingRes, linkRoutesRes] = await Promise.all([
         collaboration.getIncomingRequests(),
         collaboration.getOutgoingRequests(),
+        collaboration.getLinkRoutes(),
       ]);
 
       setIncomingRequests(incomingRes?.requests || []);
       setOutgoingRequests(outgoingRes?.requests || []);
+      setLinkRoutes(normalizeLinkRoutes(linkRoutesRes));
     } catch (e) {
       Alert.alert('Error', e?.message || 'Failed to load collaboration requests');
     } finally {
@@ -77,6 +85,54 @@ const ClosetScreen = ({ navigation }) => {
   const handleCopyLink = async (value) => {
     await Clipboard.setStringAsync(value);
     Alert.alert('Copied', 'Closet link copied');
+  };
+
+  const handleCreateLinkRoute = async () => {
+    const trimmed = String(linkInput || '').trim();
+    if (!trimmed) {
+      Alert.alert('Missing link', 'Paste a post or reel link first.');
+      return;
+    }
+
+    try {
+      setLinkRouteSubmitting(true);
+      const response = await collaboration.createLinkRoute(trimmed);
+      const createdRoutes = normalizeLinkRoutes(response);
+
+      if (createdRoutes.length > 0) {
+        setLinkRoutes((prev) => {
+          const next = [...createdRoutes, ...prev];
+          const seen = new Set();
+          return next.filter((item, index) => {
+            const key = String(item?.id ?? item?.source_url ?? index);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        });
+      } else {
+        const refreshed = await collaboration.getLinkRoutes();
+        setLinkRoutes(normalizeLinkRoutes(refreshed));
+      }
+
+      setLinkInput('');
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Failed to connect link');
+    } finally {
+      setLinkRouteSubmitting(false);
+    }
+  };
+
+  const handleRemoveLinkRoute = async (linkRouteId) => {
+    try {
+      setRemovingLinkRouteId(linkRouteId);
+      await collaboration.deleteLinkRoute(linkRouteId);
+      setLinkRoutes((prev) => prev.filter((item) => String(item?.id ?? item?.link_route_id) !== String(linkRouteId)));
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Failed to remove connected link');
+    } finally {
+      setRemovingLinkRouteId(null);
+    }
   };
 
   const onRefresh = useCallback(() => {
@@ -227,27 +283,67 @@ const ClosetScreen = ({ navigation }) => {
           <View style={styles.linksCard}>
             <View style={styles.linksHeader}>
               <View style={styles.linksCopyWrap}>
+                <Text style={styles.linksEyebrow}>Smart storefront redirect</Text>
                 <Text style={styles.linksTitle}>Connect reel/post links to your storefront</Text>
                 <Text style={styles.linksDescription}>
                   If a customer pastes one of these links in feed search and no product matches, they will be redirected to your customer storefront.
                 </Text>
               </View>
-
-              {/* <TouchableOpacity
-                style={styles.copyPrimaryButton}
-                onPress={() => handleCopyLink(spotlightLinks[0])}
-              >
-                <Feather name="copy" size={14} color="#fff" />
-                <Text style={styles.copyPrimaryButtonText}>Copy Link</Text>
-              </TouchableOpacity> */}
             </View>
 
-            {/* {spotlightLinks.map((item) => (
-              <TouchableOpacity key={item} style={styles.linkPill} onPress={() => handleCopyLink(item)}>
-                <Text style={styles.linkPillText} numberOfLines={1}>{item}</Text>
-                <Feather name="copy" size={14} color="#6b7280" />
+            <View style={[styles.linkComposerRow, isTablet && styles.linkComposerRowTablet]}>
+              <TextInput
+                value={linkInput}
+                onChangeText={setLinkInput}
+                placeholder="Paste Instagram/Facebook/Pinterest/website post link"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.linkInput}
+              />
+
+              <TouchableOpacity
+                style={[styles.connectButton, (!linkInput.trim() || linkRouteSubmitting) && styles.connectButtonDisabled]}
+                onPress={handleCreateLinkRoute}
+                disabled={!linkInput.trim() || linkRouteSubmitting}
+              >
+                {linkRouteSubmitting ? (
+                  <ActivityIndicator size="small" color="#111827" />
+                ) : (
+                  <>
+                    <Feather name="link" size={18} color="#111827" />
+                    <Text style={styles.connectButtonText}>Connect Link</Text>
+                  </>
+                )}
               </TouchableOpacity>
-            ))} */}
+            </View>
+
+            {linkRoutes.length > 0 && (
+              <View style={styles.linkPillsWrap}>
+                {linkRoutes.map((item, index) => {
+                  const routeId = item?.id ?? item?.link_route_id ?? index;
+                  const sourceUrl = item?.source_url || item?.url || '';
+                  const isRemoving = String(removingLinkRouteId) === String(routeId);
+
+                  return (
+                    <View key={String(routeId)} style={styles.linkRoutePill}>
+                      <Text style={styles.linkRoutePillText} numberOfLines={1}>{sourceUrl}</Text>
+                      <TouchableOpacity
+                        style={styles.linkRouteRemoveButton}
+                        onPress={() => handleRemoveLinkRoute(routeId)}
+                        disabled={isRemoving}
+                      >
+                        {isRemoving ? (
+                          <ActivityIndicator size="small" color="#64748b" />
+                        ) : (
+                          <Feather name="x" size={18} color="#64748b" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {loading ? (
@@ -379,16 +475,91 @@ const styles = StyleSheet.create({
   linksCopyWrap: {
     flex: 1,
   },
+  linksEyebrow: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
   linksTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 6,
   },
   linksDescription: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
     color: '#6b7280',
+  },
+  linkComposerRow: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  linkComposerRowTablet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  linkInput: {
+    flex: 1,
+    minHeight: 56,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 20,
+    fontSize: 12,
+    color: '#111827',
+  },
+  connectButton: {
+    minHeight: 36,
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    backgroundColor: '#fbbf24',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    alignSelf: 'flex-start',
+  },
+  connectButtonDisabled: {
+    opacity: 0.6,
+  },
+  connectButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  linkPillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  linkRoutePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  linkRoutePillText: {
+    maxWidth: 180,
+    fontSize: 12,
+    color: '#475569',
+  },
+  linkRouteRemoveButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   copyPrimaryButton: {
     alignSelf: 'flex-start',

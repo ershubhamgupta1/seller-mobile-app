@@ -158,7 +158,13 @@ const apiRequest = async (endpoint, options = {}) => {
     const response = await fetch(url, config);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const rawErrorMessage = errorData.message || errorData.error || errorData.code || '';
+      const normalizedErrorPayload = JSON.stringify(errorData).toLowerCase();
+      const isExpectedNoShopFailure =
+        endpoint.startsWith('/api/business/') &&
+        (normalizedErrorPayload.includes('shop_not_created') || normalizedErrorPayload.includes('no shop'));
+      const rawErrorMessage = isExpectedNoShopFailure
+        ? 'shop_not_created'
+        : errorData.message || errorData.error || errorData.code || '';
       const normalizedErrorMessage = String(rawErrorMessage).toLowerCase();
       const isAuthEndpoint =
         endpoint.includes('/api/business/auth/login') || endpoint.includes('/api/business/auth/register');
@@ -189,7 +195,7 @@ const apiRequest = async (endpoint, options = {}) => {
       }
       
       const requestError = new Error(errorMessage);
-      requestError.suppressLogging = isExpectedAuthFailure;
+      requestError.suppressLogging = isExpectedAuthFailure || isExpectedNoShopFailure;
       throw requestError;
     }
 
@@ -414,6 +420,16 @@ export const collaboration = {
        method: 'POST',
        body: JSON.stringify(collabPostData),
      }),
+  getLinkRoutes: () => apiRequest('/api/business/collaboration/link-routes'),
+  createLinkRoute: (source_url) =>
+    apiRequest('/api/business/collaboration/link-routes', {
+      method: 'POST',
+      body: JSON.stringify({ source_url }),
+    }),
+  deleteLinkRoute: (linkRouteId) =>
+    apiRequest(`/api/business/collaboration/link-routes/${linkRouteId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Payouts

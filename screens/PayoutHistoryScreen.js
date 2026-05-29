@@ -8,6 +8,7 @@ const PayoutHistoryScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [payoutData, setPayoutData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [shopExists, setShopExists] = useState(true);
 
   useEffect(() => {
     fetchPayoutHistory();
@@ -85,9 +86,16 @@ const PayoutHistoryScreen = ({ navigation }) => {
         ];
       }
       setPayoutData(payoutList);
+      setShopExists(true);
     } catch (error) {
-      console.error('Error fetching payout history:', error);
-      Alert.alert('Error', 'Failed to load payout history');
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
+        setPayoutData([]);
+      } else {
+        console.error('Error fetching payout history:', error);
+        Alert.alert('Error', 'Failed to load payout history');
+      }
     } finally {
       setLoading(false);
     }
@@ -216,6 +224,11 @@ const PayoutHistoryScreen = ({ navigation }) => {
         onNotificationPress={() => console.log('Notification pressed')}
         onProfilePress={() => navigation.navigate('userProfile')}
       />
+      {!shopExists && (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>Create your shop first</Text>
+        </View>
+      )}
       <View style={styles.content}>
         {/* Summary Cards */}
         <View style={styles.summarySection}>
@@ -323,6 +336,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#666',
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
   summarySection: {
     flexDirection: 'row',

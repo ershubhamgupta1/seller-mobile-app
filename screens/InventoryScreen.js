@@ -44,6 +44,7 @@ const InventoryScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [shopExists, setShopExists] = useState(true);
 
     useEffect(() => {
         fetchPosts();
@@ -65,9 +66,15 @@ const InventoryScreen = ({ navigation }) => {
             const response = await inventory?.getPosts();
             let postsData = response?.posts || [];
             setPosts(postsData);
+            setShopExists(true);
 
         } catch (error) {
-            console.error("Error fetching posts", error);
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+                setShopExists(false);
+            } else {
+                console.error("Error fetching posts", error);
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -95,7 +102,6 @@ const InventoryScreen = ({ navigation }) => {
     { value: "other", label: "Other", icon: "globe", color: "#6b7280" },
   ];
 
-    console.log('posts----------', posts);
     return (
 
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -113,6 +119,12 @@ const InventoryScreen = ({ navigation }) => {
                     onNotificationPress={() => { }}
                     onProfilePress={() => navigation.navigate("userProfile")}
                 />
+
+                {!shopExists && (
+                    <View style={styles.notificationBanner}>
+                        <Text style={styles.notificationText}>Create your shop first</Text>
+                    </View>
+                )}
 
                 <View style={styles.content}>
 
@@ -437,6 +449,22 @@ const styles = StyleSheet.create({
 
     statText: {
         marginRight: 12
+    },
+
+    notificationBanner: {
+        backgroundColor: '#fef3c7',
+        padding: 12,
+        marginHorizontal: 16,
+        marginTop: 16,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#f59e0b'
+    },
+
+    notificationText: {
+        fontSize: 14,
+        color: '#92400e',
+        textAlign: 'center'
     }
 
 });

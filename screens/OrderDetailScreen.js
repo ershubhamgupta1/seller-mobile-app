@@ -34,6 +34,31 @@ const SPACING = {
   lg: 16,
 };
 
+const getShippingAddressLines = (shippingAddress) => {
+  if (!shippingAddress) return ['N/A'];
+
+  const line1 = [
+    shippingAddress?.full_name,
+  ].filter(Boolean).join(', ');
+
+  const line2 = [
+    shippingAddress?.line1 || shippingAddress?.address_line1,
+    shippingAddress?.line2 || shippingAddress?.address_line2,
+  ].filter(Boolean).join(', ');
+
+  const line3 = [
+    shippingAddress?.city,
+    shippingAddress?.state,
+    shippingAddress?.postal_code || shippingAddress?.zip_code,
+  ].filter(Boolean).join(', ');
+
+  const line4 = [
+    shippingAddress?.country,
+  ].filter(Boolean).join(', ');
+
+  return [line1, line2, line3, line4].filter(Boolean);
+};
+
 /* ===================== BASE STYLES ===================== */
 const base = StyleSheet.create({
   card: {
@@ -82,6 +107,7 @@ export default function OrderDetailScreen() {
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState(null);
+  const [shopExists, setShopExists] = useState(true);
 
   const resolveAccountType = (authUser) => {
     const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
@@ -117,8 +143,15 @@ export default function OrderDetailScreen() {
     try {
       const response = await shop.getMyShop();
       setShopData(response?.shop || {});
+      setShopExists(true);
     } catch (error) {
-      console.error('Error fetching shop data:', error);
+      // Check if error is due to shop not existing
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
+      } else {
+        console.error('Error fetching shop data:', error);
+      }
     }
   };
 
@@ -165,27 +198,15 @@ export default function OrderDetailScreen() {
       
       <View style={styles.invoiceHeader}>
         <View style={styles.invoiceDetailsRow}>
-          <View style={styles.leftColumn}>
-            <Text style={base.label}>Seller:</Text>
-            <Text style={{...base.value, fontWeight: 700, fontSize: 16, marginBottom: 2}}>{shopData?.name || 'N/A'}</Text>
-            <Text style={base.value}>{shopData?.bio_link || 'N/A'}</Text>
-            <Text style={base.label}>Address:</Text>
-            <Text style={base.value}>
-              {shopData?.address && shopData?.city 
-                ? `${shopData.address}, ${shopData.city}` 
-                : shopData?.address || shopData?.city || 'N/A'
-              }
-            </Text>
-            <Text style={base.label}>Phone:</Text>
-            <Text style={base.value}>{shopData?.phone || 'N/A'}</Text>
-            <Text style={base.label}>WhatsApp:</Text>
-            <Text style={base.value}>{shopData?.whatsapp || shopData?.phone || 'N/A'}</Text>
-          </View>
           <View style={styles.rightColumn}>
             <Text style={base.label}>Order Date:</Text>
             <Text style={base.value}>{new Date(orderData?.created_at).toLocaleDateString()}</Text>
             <Text style={base.label}>Status:</Text>
             <Text style={base.value}>{orderData?.order_status || 'Pending'}</Text>
+            <Text style={base.label}>Delivery Address:</Text>
+            {getShippingAddressLines(orderData?.delivery_address || orderData?.shipping_address).map((line, index) => (
+              <Text key={`shipping-address-${index}`} style={styles.deliveryAddressText}>{line}</Text>
+            ))}
           </View>
         </View>
       </View>
@@ -208,7 +229,7 @@ export default function OrderDetailScreen() {
           <View style={styles.content}>
             <View style={styles.itemTitleRow}>
               <Text style={styles.itemTitle}>{item?.post?.title || 'Product'}</Text>
-              {isInfluencer && (
+              {item?.is_collab && (
                 <View style={styles.collabPill}>
                   <Text style={styles.collabPillText}>Collab</Text>
                 </View>
@@ -370,78 +391,99 @@ export default function OrderDetailScreen() {
     <View style={base.card}>
       <Text style={base.title}>Summary</Text>
 
-      <View style={base.rowBetween}>
-        <Text style={base.label}>Subtotal</Text>
-        <Text style={base.value}>₹ {isInfluencer ? (orderData?.scope_subtotal ?? orderData?.collab_subtotal ?? orderData?.shop_subtotal ?? '0') : (orderData?.shop_subtotal ?? '0')}</Text>
-      </View>
+      {(() => {
+        const isCollabOrder = Boolean(
+          orderData?.has_collab_items ||
+          orderData?.items?.some((item) => item?.is_collab) ||
+          Number(orderData?.collab_total_amount ?? 0) > 0 ||
+          Number(orderData?.influencer_cut_amount ?? orderData?.influencer_cut ?? 0) > 0
+        );
 
-      {isInfluencer && (
-        <>
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Delivery</Text>
-            <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.collab_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
-          </View>
+        return (
+          <>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Total paid</Text>
-            <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.collab_total_amount ?? orderData?.total_amount ?? '0'}</Text>
-          </View>
+            <View style={base.rowBetween}>
+              <Text style={base.label}>Subtotal</Text>
+              <Text style={base.value}>₹ {isInfluencer ? (orderData?.scope_subtotal ?? orderData?.collab_subtotal ?? orderData?.shop_subtotal ?? '0') : (orderData?.shop_subtotal ?? '0')}</Text>
+            </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Platform fee (10%)</Text>
-            <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? orderData?.platform_fee ?? '0'}</Text>
-          </View>
+            {isInfluencer && (
+              <>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Delivery</Text>
+                  <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.collab_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Influencer cut (15%)</Text>
-            <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.influencer_cut ?? '0'}</Text>
-          </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Total paid</Text>
+                  <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.collab_total_amount ?? orderData?.total_amount ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Your earnings</Text>
-            <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.your_earnings ?? orderData?.influencer_cut ?? '0'}</Text>
-          </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Platform fee (10%)</Text>
+                  <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? orderData?.platform_fee ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Customer paid (full order)</Text>
-            <Text style={base.value}>₹ {orderData?.order_total_amount ?? orderData?.collab_total_amount ?? orderData?.customer_paid_full_order ?? orderData?.customer_paid ?? '0'}</Text>
-          </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Influencer cut (15%)</Text>
+                  <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.influencer_cut ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Net after fees</Text>
-            <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
-          </View>
-        </>
-      )}
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Your earnings</Text>
+                  <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.your_earnings ?? orderData?.influencer_cut ?? '0'}</Text>
+                </View>
 
-      {!isInfluencer && (
-        <>
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Delivery</Text>
-            <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
-          </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Customer paid (full order)</Text>
+                  <Text style={base.value}>₹ {orderData?.order_total_amount ?? orderData?.collab_total_amount ?? orderData?.customer_paid_full_order ?? orderData?.customer_paid ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Total paid</Text>
-            <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.total_amount ?? '0'}</Text>
-          </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Net after fees</Text>
+                  <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
+                </View>
+              </>
+            )}
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Platform fee</Text>
-            <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? '0'}</Text>
-          </View>
+            {!isInfluencer && (
+              <>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Delivery</Text>
+                  <Text style={base.value}>₹ {orderData?.shop_delivery_fee_amount ?? orderData?.delivery_fee_amount ?? '0'}</Text>
+                </View>
 
-          <View style={[base.rowBetween, { marginTop: 10 }]}>
-            <Text style={base.label}>Net after fees</Text>
-            <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
-          </View>
-        </>
-      )}
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Total paid</Text>
+                  <Text style={base.value}>₹ {orderData?.shop_total_amount ?? orderData?.total_amount ?? '0'}</Text>
+                </View>
 
-      <View style={[base.rowBetween, { marginTop: 10 }]}>
-        <Text style={base.label}>Order status</Text>
-        <Text style={base.value}>{orderData?.order_status || 'Created'}</Text>
-      </View>
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Platform fee</Text>
+                  <Text style={base.value}>₹ {orderData?.platform_fee_amount ?? '0'}</Text>
+                </View>
+
+                {isCollabOrder && (
+                  <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                    <Text style={base.label}>Influencer cut (15%)</Text>
+                    <Text style={base.value}>₹ {orderData?.influencer_cut_amount ?? orderData?.influencer_cut ?? '0'}</Text>
+                  </View>
+                )}
+
+                <View style={[base.rowBetween, { marginTop: 10 }]}> 
+                  <Text style={base.label}>Net after fees</Text>
+                  <Text style={base.value}>₹ {orderData?.net_after_fees_amount ?? '0'}</Text>
+                </View>
+              </>
+            )}
+
+            <View style={[base.rowBetween, { marginTop: 10 }]}> 
+              <Text style={base.label}>Order status</Text>
+              <Text style={base.value}>{orderData?.order_status || 'Created'}</Text>
+            </View>
+          </>
+        );
+      })()}
     </View>
   );
 
@@ -472,6 +514,11 @@ export default function OrderDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+        {!shopExists && (
+          <View style={styles.notificationBanner}>
+            <Text style={styles.notificationText}>Create your shop first</Text>
+          </View>
+        )}
         <OrderHeaderCard orderData={orderData} navigation={navigation} />
         <OrderItemCard orderData={orderData} />
         <FulfillmentCard orderData={orderData} />
@@ -530,8 +577,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   invoiceDetailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: '100%',
   },
   leftColumn: {
     flex: 1,
@@ -539,8 +585,16 @@ const styles = StyleSheet.create({
   },
   rightColumn: {
     flex: 1,
-    paddingLeft: 16,
-    alignItems: 'flex-end',
+    width: '100%',
+    paddingLeft: 0,
+    alignItems: 'flex-start',
+  },
+  deliveryAddressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    textAlign: 'left',
+    lineHeight: 18,
   },
 
   /* HEADER */
@@ -757,5 +811,19 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 16,
     color: COLORS.textPrimary,
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 });

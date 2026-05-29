@@ -3,8 +3,32 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ShareIntentModule, useShareIntentContext } from 'expo-share-intent';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../contexts/AuthContext';
 
 const LAST_COLLAB_REQUEST_ID_STORAGE_KEY = 'last_collab_request_id';
+
+const resolveAccountType = (authUser) => {
+  const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
+
+  const accountTypeRaw = u?.account_type;
+  if (typeof accountTypeRaw === 'string') {
+    const normalized = accountTypeRaw.toLowerCase();
+    if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+    if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+  }
+
+  const raw = u?.user_type ?? u?.type ?? u?.role ?? u?.profile_type ?? u?.actor_type;
+  if (typeof raw === 'string') {
+    const normalized = raw.toLowerCase();
+    if (normalized.includes('influencer') || normalized.includes('creator')) return 'influencer';
+    if (normalized.includes('business') || normalized.includes('seller') || normalized.includes('shop')) return 'business';
+  }
+
+  if (u?.is_influencer === true) return 'influencer';
+  if (u?.is_business === true) return 'business';
+
+  return 'business';
+};
 
 const extractUrlFromText = (value = '') => {
   const match = value.match(/https?:\/\/\S+/i);
@@ -93,6 +117,8 @@ export default function IncomingShareScreen({ route }) {
   const { error, hasShareIntent, isReady, resetShareIntent, shareIntent } = useShareIntentContext();
   const hasFallbackDraft = hasDraftContent(fallbackDraft);
   const hasNativePayload = hasIntentPayload(shareIntent);
+  const { user } = useAuth();
+  const isInfluencer = resolveAccountType(user) === 'influencer';
 
   useEffect(() => {
     if (handledRef.current) {
@@ -128,6 +154,15 @@ export default function IncomingShareScreen({ route }) {
     }
 
     const run = async () => {
+      // Business users go directly to new post page (same as old version)
+      if (!isInfluencer) {
+        navigation.replace('addPost', {
+          sharedDraft,
+        });
+        return;
+      }
+      
+      // Influencers check for collaboration request
       const sharedUrl = String(sharedDraft?.socialUrl || '').trim();
       if (sharedUrl) {
         try {
@@ -135,7 +170,7 @@ export default function IncomingShareScreen({ route }) {
           const parsedRequestId = Number(lastRequestId);
 
           if (Number.isFinite(parsedRequestId) && parsedRequestId > 0) {
-            Alert.alert('Share received', `Opening request #${parsedRequestId}`);
+            // Alert.alert('Share received', `Opening request #${parsedRequestId}`);
             navigation.replace('collaborationRequestDetail', {
               requestId: parsedRequestId,
               prefillSocialUrl: sharedUrl,
@@ -143,9 +178,9 @@ export default function IncomingShareScreen({ route }) {
             return;
           }
 
-          Alert.alert('Share received', 'No request selected. Open a request first, then share again.');
+          // Alert.alert('Share received', 'No request selected. Open a request first, then share again.');
         } catch (e) {
-          Alert.alert('Share received', 'Failed to resolve request.');
+          // Alert.alert('Share received', 'Failed to resolve request.');
         }
       }
 
@@ -155,7 +190,7 @@ export default function IncomingShareScreen({ route }) {
     };
 
     run();
-  }, [error, fallbackDraft, hasFallbackDraft, hasNativePayload, hasShareIntent, isReady, navigation, resetShareIntent, shareIntent]);
+  }, [error, fallbackDraft, hasFallbackDraft, hasNativePayload, hasShareIntent, isReady, navigation, resetShareIntent, shareIntent, isInfluencer]);
 
   useEffect(() => {
     return () => {

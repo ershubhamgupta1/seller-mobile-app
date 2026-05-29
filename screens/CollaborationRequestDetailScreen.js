@@ -163,6 +163,7 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
     facebook: '',
     pinterest: '',
   });
+  const [shopExists, setShopExists] = useState(true);
 
   const resolveAccountType = (authUser) => {
     const u = authUser?.user || authUser?.me || authUser?.data?.user || authUser;
@@ -195,14 +196,14 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
   const post = req?.post || {};
   const collabPost = req?.collab_post || {};
 
-  const [socialLink, setSocialLink] = useState(collabPost?.effective_social_url || collabPost?.social_url || '');
+  const [socialLink, setSocialLink] = useState(collabPost?.social_url || '');
   const [selectedPlatform, setSelectedPlatform] = useState(
     (collabPost?.effective_social_platform
       ? String(collabPost.effective_social_platform).toLowerCase()
       : '') ||
       (collabPost?.social_platform ? String(collabPost.social_platform).toLowerCase() : '') ||
       (post?.social_platform ? String(post.social_platform).toLowerCase() : '') ||
-      (collabPost?.effective_social_url || collabPost?.social_url ? inferPlatformFromUrl(collabPost?.effective_social_url || collabPost?.social_url) : '') ||
+      (collabPost?.social_url ? inferPlatformFromUrl(collabPost?.social_url) : '') ||
       'instagram'
   );
   const [imageUrls, setImageUrls] = useState(() => {
@@ -245,7 +246,7 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
           const freshCollabPost = freshReq?.collab_post || {};
           if (!prefillAppliedRef.current) {
             setSocialLink(
-              freshCollabPost?.effective_social_url || freshCollabPost?.social_url || ''
+              freshCollabPost?.social_url || ''
             );
           }
 
@@ -260,8 +261,8 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
                 (freshReq?.post?.social_platform
                   ? String(freshReq.post.social_platform).toLowerCase()
                   : '') ||
-                (freshCollabPost?.effective_social_url || freshCollabPost?.social_url
-                  ? inferPlatformFromUrl(freshCollabPost?.effective_social_url || freshCollabPost?.social_url)
+                (freshCollabPost?.social_url
+                  ? inferPlatformFromUrl(freshCollabPost?.social_url)
                   : '') ||
                 'instagram'
             );
@@ -337,8 +338,14 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
           facebook: String(shopResponse.facebook_handle ?? '').trim(),
           pinterest: String(shopResponse.pinterest_handle ?? '').trim(),
         });
+        setShopExists(true);
       } catch (e) {
         if (!mounted) return;
+        // Check if error is due to shop not existing
+        const msg = String(e?.message || '').toLowerCase();
+        if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+          setShopExists(false);
+        }
       }
     };
 
@@ -465,7 +472,7 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
           const freshCollabPost = freshReq?.collab_post || {};
           if (!prefillAppliedRef.current) {
             setSocialLink(
-              freshCollabPost?.effective_social_url || freshCollabPost?.social_url || ''
+              freshCollabPost?.social_url || ''
             );
           }
 
@@ -574,7 +581,6 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
       return next;
     });
   };
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -601,6 +607,12 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
             </View>
           }
         />
+
+        {!shopExists && (
+          <View style={styles.notificationBanner}>
+            <Text style={styles.notificationText}>Create your shop first</Text>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.loadingWrap}>
@@ -632,7 +644,7 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
               style={styles.actionButton}
               onPress={() =>
                 handleOpenLink(
-                  (collabPost?.effective_social_url || collabPost?.social_url || post?.social_url || '').trim()
+                  (collabPost?.social_url || post?.social_url || '').trim()
                 )
               }
             >
@@ -780,7 +792,7 @@ const CollaborationRequestDetailScreen = ({ route, navigation }) => {
           <Text style={styles.previewTitle}>Preview (what customers will see)</Text>
           <View style={styles.previewWrap}>
             <View style={styles.previewRow}>
-              {(previewImageUrls.length > 0 ? previewImageUrls : ['', '']).map((u, idx) => (
+              {(previewImageUrls.length > 0 ? previewImageUrls : ['']).map((u, idx) => (
                 <View
                   key={`${u || 'empty'}-${idx}`}
                   style={[styles.previewItem, idx === 0 && styles.previewItemDivider]}
@@ -1284,6 +1296,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#6b7280',
     marginTop: 16,
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 });
 

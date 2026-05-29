@@ -16,6 +16,7 @@ const HomeScreen = ({ navigation }) => {
   const [shopData, setShopData] = useState(null);
   const [qrImageUrl, setQrImageUrl] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [shopExists, setShopExists] = useState(true);
   const uniqueLink = 'e-kom.io/yourshop';
 
   useEffect(() => {
@@ -35,8 +36,15 @@ const HomeScreen = ({ navigation }) => {
 
       setShopData(shopResponse);
       setQrImageUrl(qrCode)
+      setShopExists(true);
     } catch (error) {
-      console.error('Error fetching shop data:', error);
+      // Check if error is due to shop not existing
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
+      } else {
+        console.error('Error fetching shop data:', error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -115,7 +123,16 @@ const HomeScreen = ({ navigation }) => {
         onNotificationPress={() => console.log('Notification pressed')}
         onProfilePress={() => navigation.navigate('userProfile')}
       />
-      <TouchableOpacity style={styles.qrButton} onPress={() => navigation.navigate('analytics')}>
+      {!shopExists && (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>Create your shop first</Text>
+        </View>
+      )}
+      <TouchableOpacity
+        style={[styles.qrButton, !shopExists && styles.disabledButton]}
+        onPress={() => shopExists && navigation.navigate('analytics')}
+        disabled={!shopExists}
+      >
       <Text style={styles.sectionTitle}>Analytics</Text>
 
       </TouchableOpacity>
@@ -391,9 +408,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: 8,
+    fontSize: 14,
     color: '#666',
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

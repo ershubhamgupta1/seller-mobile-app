@@ -233,6 +233,7 @@ const DashboardScreen = ({ navigation }) => {
   const [shopData, setShopData] = useState({});
   const [collabCounts, setCollabCounts] = useState({ activeCollabs: 0 });
   const [promotionLoading, setPromotionLoading] = useState(false);
+  const [shopExists, setShopExists] = useState(true);
   const { user, isAuthenticated } = useAuth();
 
   const resolveUserName = (authUser) => {
@@ -309,9 +310,16 @@ const DashboardScreen = ({ navigation }) => {
       // Extract shop data from nested response
       const shopResponse = response?.shop || {};
       setShopData(shopResponse);
+      setShopExists(true);
     } catch (error) {
       const msg = String(error?.message || '').toLowerCase();
       if (!isAuthenticated || msg.includes('incorrect password') || msg.includes('unauthorized') || msg.includes('401')) {
+        return;
+      }
+
+      // Check if error is due to shop not existing
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
         return;
       }
 
@@ -342,6 +350,11 @@ const DashboardScreen = ({ navigation }) => {
       if (!isAuthenticated || msg.includes('incorrect password') || msg.includes('unauthorized') || msg.includes('401')) {
         return;
       }
+
+       if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+         setShopExists(false);
+         return;
+       }
 
       console.error(e);
     }
@@ -455,9 +468,13 @@ const DashboardScreen = ({ navigation }) => {
                   Submit GST, shop photos, and social proof. Verification unlocks marketplace trust.
                 </Text>
 
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('trustMeter')}>
-                  <Text style={styles.secondaryButtonText}>Open Trust Meter</Text>
-                  <Feather name="arrow-right" size={16} />
+                <TouchableOpacity 
+                  style={[styles.secondaryButton, !shopExists && styles.disabledButton]} 
+                  onPress={() => shopExists && navigation.navigate('trustMeter')}
+                  disabled={!shopExists}
+                >
+                  <Text style={[styles.secondaryButtonText, !shopExists && styles.disabledButtonText]}>Open Trust Meter</Text>
+                  <Feather name="arrow-right" size={16} color={shopExists ? undefined : '#9ca3af'} />
                 </TouchableOpacity>
               </View>
 
@@ -473,11 +490,12 @@ const DashboardScreen = ({ navigation }) => {
             <>
               {/* NAV */}
               <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => navigation.navigate("analytics")}
+                style={[styles.secondaryButton, !shopExists && styles.disabledButton]}
+                onPress={() => shopExists && navigation.navigate("analytics")}
+                disabled={!shopExists}
               >
-                <Text style={styles.secondaryButtonText}>Open Analytics</Text>
-                <Feather name="arrow-right" size={16} />
+                <Text style={[styles.secondaryButtonText, !shopExists && styles.disabledButtonText]}>Open Analytics</Text>
+                <Feather name="arrow-right" size={16} color={shopExists ? undefined : '#9ca3af'} />
               </TouchableOpacity>
 
               {/* QUICK ACTION */}
@@ -529,11 +547,15 @@ const DashboardScreen = ({ navigation }) => {
                   Submit GST, shop photos, and social proof. Verification unlocks marketplace trust.
                 </Text>
 
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('trustMeter')}>
-                  <Text style={styles.secondaryButtonText}>
+                <TouchableOpacity 
+                  style={[styles.secondaryButton, !shopExists && styles.disabledButton]} 
+                  onPress={() => shopExists && navigation.navigate('trustMeter')}
+                  disabled={!shopExists}
+                >
+                  <Text style={[styles.secondaryButtonText, !shopExists && styles.disabledButtonText]}>
                     Open Trust Meter
                   </Text>
-                  <Feather name="arrow-right" size={16} />
+                  <Feather name="arrow-right" size={16} color={shopExists ? undefined : '#9ca3af'} />
                 </TouchableOpacity>
               </View>
 
@@ -824,5 +846,12 @@ const styles = StyleSheet.create({
   pendingText: {
     color: "#dc2626",
     fontWeight: "600",
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: '#e5e7eb',
+  },
+  disabledButtonText: {
+    color: '#9ca3af',
   },
 });

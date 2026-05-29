@@ -332,7 +332,7 @@ export default function AddPostScreen({ route }) {
   const [internationalDelivery, setInternationalDelivery] = useState(post?.attributes?.international_delivery_fee_amount?.toString() || "");
   const [color, setColor] = useState(post?.attributes?.color || "");
   const [size, setSize] = useState(post?.attributes?.size || "");
-  const [caption, setCaption] = useState(post?.caption || sharedDraft?.caption || "");
+  const [caption, setCaption] = useState(post?.caption || "");
   const [imageUrls, setImageUrls] = useState(post?.images?.length > 0 ? post.images.map(img => getAbsoluteImageUrl(img.url)) : initialSharedImageUrls);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(post?.social_platform || sharedDraft?.platform || (sharedDraft?.socialUrl ? inferPlatformFromUrl(sharedDraft.socialUrl) : ""));
@@ -352,6 +352,7 @@ export default function AddPostScreen({ route }) {
     pinterest: "",
     shipsInternationally: false,
   });
+  const [shopExists, setShopExists] = useState(true);
   const appliedSharedDraftRef = useRef(sharedDraft?.receivedAt || null);
 
   const postId = useMemo(() => post?.id ?? post?.post_id ?? post?._id, [post]);
@@ -495,8 +496,18 @@ export default function AddPostScreen({ route }) {
           pinterest: normalizeCsvValue(shopResponse.pinterest_handle ?? ''),
           shipsInternationally: Boolean(shopResponse.ships_internationally),
         });
+        setShopExists(true);
       } catch (error) {
-        console.error("Error fetching shop social handles:", error);
+        if (!isMounted) {
+          return;
+        }
+
+        const msg = String(error?.message || '').toLowerCase();
+        if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+          setShopExists(false);
+        } else {
+          console.error("Error fetching shop social handles:", error);
+        }
       }
     };
 
@@ -1108,6 +1119,11 @@ export default function AddPostScreen({ route }) {
         <Text style={styles.headerTitle}>{isEditMode ? 'Edit post' : 'Create post'}</Text>
         <View style={styles.headerSpacer} />
       </View>
+      {!shopExists && (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>Create your shop first</Text>
+        </View>
+      )}
       <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
         <View style={{ padding: 20 }}>
           {/* Create Post */}
@@ -2161,6 +2177,22 @@ const styles = StyleSheet.create({
 
   headerSpacer: {
     width: 34
+  },
+
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 
   qrText: {

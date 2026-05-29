@@ -73,6 +73,7 @@ const ShopProfileScreen = ({ navigation }) => {
   const [payoutData, setPayoutData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [qrImageUrl, setQrImageUrl] = useState(null);
+  const [shopExists, setShopExists] = useState(true);
   const [uploadingShopPhotos, setUploadingShopPhotos] = useState(false);
   const viewShotRef = useRef(null);
   const [formData, setFormData] = useState({
@@ -165,7 +166,12 @@ const ShopProfileScreen = ({ navigation }) => {
       }
       setPayoutData(payoutList);
     } catch (error) {
-      console.error('Error fetching payout data:', error);
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setPayoutData([]);
+      } else {
+        console.error('Error fetching payout data:', error);
+      }
     }
   };
 
@@ -225,6 +231,7 @@ const ShopProfileScreen = ({ navigation }) => {
       };
 
       setShopData(hydratedShopData);
+      setShopExists(true);
       setFormData({
         name: shopResponse?.name || '',
         email: shopResponse?.email || '',
@@ -260,8 +267,14 @@ const ShopProfileScreen = ({ navigation }) => {
       });
       
     } catch (error) {
-      console.error('Error fetching shop data:', error);
-      Alert.alert('Error', 'Failed to load shop data');
+      // Check if error is due to shop not existing
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('not found') || msg.includes('404') || msg.includes('no shop') || msg.includes('shop_not_created')) {
+        setShopExists(false);
+      } else {
+        console.error('Error fetching shop data:', error);
+        Alert.alert('Error', 'Failed to load shop data');
+      }
     } finally {
       setLoading(false);
     }
@@ -698,6 +711,11 @@ const ShopProfileScreen = ({ navigation }) => {
           onNotificationPress={() => console.log('Notification pressed')}
           onProfilePress={() => navigation.navigate('userProfile')}
         />
+        {!shopExists && (
+          <View style={styles.notificationBanner}>
+            <Text style={styles.notificationText}>Create your shop first</Text>
+          </View>
+        )}
         <View style={[styles.content, isTablet && styles.contentTablet]}>
           <View style={[styles.pageContent, isTablet && styles.pageContentTablet]}>
           {/* Shop Logo Section */}
@@ -2568,6 +2586,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  notificationBanner: {
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center',
   },
 });
 
